@@ -1,0 +1,292 @@
+package api
+
+import (
+	"encoding/json"
+	"errors"
+	"net/http"
+	"strings"
+	"time"
+
+	"github.com/go-chi/chi/v5"
+	"github.com/google/uuid"
+	"github.com/instantmeet/instantmeet/backend/internal/auth"
+	"github.com/instantmeet/instantmeet/backend/internal/meeting"
+	"github.com/instantmeet/instantmeet/backend/internal/models"
+	"github.com/instantmeet/instantmeet/backend/internal/services"
+	ws "github.com/instantmeet/instantmeet/backend/internal/websocket"
+)
+
+type API struct {
+	meetings *meeting.Store
+	hub      *ws.Hub
+	livekit  *services.LiveKit
+}
+
+func New(store *meeting.Store, hub *ws.Hub, livekit *services.LiveKit) *API {
+	return &API{store, hub, livekit}
+}
+
+func (a *API) Routes() chi.Router {
+	r := chi.NewRouter()
+	r.Get("/me", a.me)
+	r.Post("/meetings", a.create)
+	r.Route("/meetings/{id}", func(r chi.Router) {
+		r.Get("/", a.get)
+		r.Post("/join", a.join)
+		r.Post("/leave", a.leave)
+		r.Post("/admit", a.admit)
+		r.Post("/reject", a.reject)
+		r.Post("/remove", a.remove)
+		r.Post("/mute", a.mute)
+		r.Post("/chat", a.chat)
+		r.Post("/media", a.media)
+		r.Post("/end", a.end)
+	})
+	return r
+}
+
+func (a *API) me(w http.ResponseWriter, r *http.Request) { write(w, 200, auth.User(r)) }
+func (a *API) create(w http.ResponseWriter, r *http.Request) {
+	m := a.meetings.Create(auth.User(r))
+	write(w, 201, map[string]any{"meeting": m, "url": "/meet/" + m.ID})
+}
+func (a *API) get(w http.ResponseWriter, r *http.Request) {
+	m, ok := a.meetings.Get(chi.URLParam(r, "id"))
+	if !ok {
+		problem(w, 404, "meeting not found")
+		return
+	}
+	write(w, 200, publicMeeting(m, auth.User(r).ID))
+}
+func (a *API) join(w http.ResponseWriter, r *http.Request) {
+	user := auth.User(r)
+	id := chi.URLParam(r, "id")
+	m, err := a.meetings.Update(id, func(m *models.Meeting) error {
+		if len(m.Participants)+len(m.WaitingRoom) >= 100 {
+			return errors.New("meeting is full")
+		}
+		if user.ID == m.HostID {
+			m.Participants[user.ID] = participant(user, true)
+			m.State = models.MeetingActive
+		} else if m.Participants[user.ID] == nil {
+			m.WaitingRoom[user.ID] = &models.WaitingParticipant{Participant: *participant(user, false), RequestedAt: time.Now().UTC()}
+		}
+		return nil
+	})
+	if err != nil {
+		problem(w, status(err), err.Error())
+		return
+	}
+	a.hub.Broadcast(id, ws.Event{Type: "meeting.updated", Payload: publicMeeting(m, user.ID)})
+	response := map[string]any{"status": "waiting", "meeting": publicMeeting(m, user.ID)}
+	if m.Participants[user.ID] != nil {
+		token, _ := a.livekit.Token(m.LiveKitRoom, user, true)
+		response["status"], response["livekitToken"], response["livekitUrl"] = "admitted", token, a.livekit.PublicURL()
+	}
+	write(w, 200, response)
+}
+func (a *API) admit(w http.ResponseWriter, r *http.Request)  { a.waitingAction(w, r, true) }
+func (a *API) reject(w http.ResponseWriter, r *http.Request) { a.waitingAction(w, r, false) }
+func (a *API) waitingAction(w http.ResponseWriter, r *http.Request, admit bool) {
+	host := auth.User(r)
+	id := chi.URLParam(r, "id")
+	var body struct {
+		UserID string `json:"userId"`
+	}
+	_ = json.NewDecoder(r.Body).Decode(&body)
+	m, err := a.meetings.Update(id, func(m *models.Meeting) error {
+		if m.HostID != host.ID {
+			return errors.New("host only")
+		}
+		waiting := m.WaitingRoom[body.UserID]
+		if waiting == nil {
+			return errors.New("participant not waiting")
+		}
+		delete(m.WaitingRoom, body.UserID)
+		if admit {
+			p := waiting.Participant
+			p.JoinedAt = time.Now().UTC()
+			m.Participants[body.UserID] = &p
+			m.State = models.MeetingActive
+		}
+		return nil
+	})
+	if err != nil {
+		problem(w, status(err), err.Error())
+		return
+	}
+	event := "participant.rejected"
+	if admit {
+		event = "participant.admitted"
+	}
+	a.hub.Broadcast(id, ws.Event{Type: event, UserID: body.UserID, Payload: publicMeeting(m, host.ID)})
+	write(w, 200, publicMeeting(m, host.ID))
+}
+func (a *API) leave(w http.ResponseWriter, r *http.Request) {
+	user := auth.User(r)
+	id := chi.URLParam(r, "id")
+	destroy := false
+	m, err := a.meetings.Update(id, func(m *models.Meeting) error {
+		delete(m.Participants, user.ID)
+		delete(m.WaitingRoom, user.ID)
+		destroy = len(m.Participants) == 0
+		return nil
+	})
+	if err != nil {
+		problem(w, status(err), err.Error())
+		return
+	}
+	if destroy {
+		a.meetings.Delete(id)
+		a.hub.Broadcast(id, ws.Event{Type: "meeting.ended"})
+		w.WriteHeader(204)
+		return
+	}
+	a.hub.Broadcast(id, ws.Event{Type: "meeting.updated", Payload: publicMeeting(m, user.ID)})
+	w.WriteHeader(204)
+}
+func (a *API) remove(w http.ResponseWriter, r *http.Request) {
+	host := auth.User(r)
+	id := chi.URLParam(r, "id")
+	var body struct {
+		UserID string `json:"userId"`
+	}
+	_ = json.NewDecoder(r.Body).Decode(&body)
+	m, err := a.meetings.Update(id, func(m *models.Meeting) error {
+		if m.HostID != host.ID {
+			return errors.New("host only")
+		}
+		if body.UserID == host.ID {
+			return errors.New("cannot remove host")
+		}
+		delete(m.Participants, body.UserID)
+		return nil
+	})
+	if err != nil {
+		problem(w, status(err), err.Error())
+		return
+	}
+	a.hub.Broadcast(id, ws.Event{Type: "participant.removed", UserID: body.UserID, Payload: publicMeeting(m, host.ID)})
+	w.WriteHeader(204)
+}
+func (a *API) mute(w http.ResponseWriter, r *http.Request) {
+	host := auth.User(r)
+	id := chi.URLParam(r, "id")
+	var body struct {
+		UserID string `json:"userId"`
+	}
+	_ = json.NewDecoder(r.Body).Decode(&body)
+	m, err := a.meetings.Update(id, func(m *models.Meeting) error {
+		if m.HostID != host.ID {
+			return errors.New("host only")
+		}
+		p := m.Participants[body.UserID]
+		if p == nil {
+			return errors.New("participant not found")
+		}
+		p.MicEnabled = false
+		return nil
+	})
+	if err != nil {
+		problem(w, status(err), err.Error())
+		return
+	}
+	a.hub.Broadcast(id, ws.Event{Type: "participant.muted", UserID: body.UserID, Payload: publicMeeting(m, host.ID)})
+	w.WriteHeader(204)
+}
+func (a *API) chat(w http.ResponseWriter, r *http.Request) {
+	user := auth.User(r)
+	id := chi.URLParam(r, "id")
+	var body struct {
+		Text string `json:"text"`
+	}
+	_ = json.NewDecoder(r.Body).Decode(&body)
+	body.Text = strings.TrimSpace(body.Text)
+	if body.Text == "" || len(body.Text) > 1000 {
+		problem(w, 400, "message must be 1-1000 characters")
+		return
+	}
+	msg := models.ChatMessage{ID: uuid.NewString(), UserID: user.ID, DisplayName: user.DisplayName, Text: body.Text, SentAt: time.Now().UTC()}
+	_, err := a.meetings.Update(id, func(m *models.Meeting) error {
+		if m.Participants[user.ID] == nil {
+			return errors.New("not in meeting")
+		}
+		m.Chat = append(m.Chat, msg)
+		return nil
+	})
+	if err != nil {
+		problem(w, status(err), err.Error())
+		return
+	}
+	a.hub.Broadcast(id, ws.Event{Type: "chat.message", Payload: msg})
+	write(w, 201, msg)
+}
+func (a *API) media(w http.ResponseWriter, r *http.Request) {
+	user := auth.User(r)
+	id := chi.URLParam(r, "id")
+	var body struct{ Mic, Camera, Screen *bool }
+	_ = json.NewDecoder(r.Body).Decode(&body)
+	m, err := a.meetings.Update(id, func(m *models.Meeting) error {
+		p := m.Participants[user.ID]
+		if p == nil {
+			return errors.New("not in meeting")
+		}
+		if body.Mic != nil {
+			p.MicEnabled = *body.Mic
+		}
+		if body.Camera != nil {
+			p.CameraEnabled = *body.Camera
+		}
+		if body.Screen != nil {
+			p.ScreenSharing = *body.Screen
+		}
+		return nil
+	})
+	if err != nil {
+		problem(w, status(err), err.Error())
+		return
+	}
+	a.hub.Broadcast(id, ws.Event{Type: "participant.media", UserID: user.ID, Payload: publicMeeting(m, user.ID)})
+	w.WriteHeader(204)
+}
+func (a *API) end(w http.ResponseWriter, r *http.Request) {
+	host := auth.User(r)
+	id := chi.URLParam(r, "id")
+	_, err := a.meetings.Update(id, func(m *models.Meeting) error {
+		if m.HostID != host.ID {
+			return errors.New("host only")
+		}
+		m.State = models.MeetingEnding
+		return nil
+	})
+	if err != nil {
+		problem(w, status(err), err.Error())
+		return
+	}
+	a.hub.Broadcast(id, ws.Event{Type: "meeting.ended"})
+	a.meetings.Delete(id)
+	w.WriteHeader(204)
+}
+func participant(u models.User, host bool) *models.Participant {
+	return &models.Participant{UserID: u.ID, DisplayName: u.DisplayName, Avatar: u.Avatar, IsHost: host, JoinedAt: time.Now().UTC(), MicEnabled: true, CameraEnabled: true}
+}
+func publicMeeting(m *models.Meeting, userID string) map[string]any {
+	return map[string]any{"id": m.ID, "hostId": m.HostID, "createdAt": m.CreatedAt, "participants": m.Participants, "waitingRoom": m.WaitingRoom, "chat": m.Chat, "state": m.State, "isHost": m.HostID == userID}
+}
+func status(err error) int {
+	if errors.Is(err, meeting.ErrNotFound) {
+		return 404
+	}
+	if err.Error() == "host only" {
+		return 403
+	}
+	return 400
+}
+func problem(w http.ResponseWriter, code int, message string) {
+	write(w, code, map[string]string{"error": message})
+}
+func write(w http.ResponseWriter, code int, value any) {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(code)
+	_ = json.NewEncoder(w).Encode(value)
+}
