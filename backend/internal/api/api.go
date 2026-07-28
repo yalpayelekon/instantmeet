@@ -12,17 +12,22 @@ import (
 	"github.com/instantmeet/instantmeet/backend/internal/auth"
 	"github.com/instantmeet/instantmeet/backend/internal/meeting"
 	"github.com/instantmeet/instantmeet/backend/internal/models"
-	"github.com/instantmeet/instantmeet/backend/internal/services"
 	ws "github.com/instantmeet/instantmeet/backend/internal/websocket"
 )
+
+// MediaTokens mints LiveKit join grants after admission.
+type MediaTokens interface {
+	Token(room string, user models.User, canPublish bool) (string, error)
+	PublicURL() string
+}
 
 type API struct {
 	meetings *meeting.Store
 	hub      *ws.Hub
-	livekit  *services.LiveKit
+	livekit  MediaTokens
 }
 
-func New(store *meeting.Store, hub *ws.Hub, livekit *services.LiveKit) *API {
+func New(store *meeting.Store, hub *ws.Hub, livekit MediaTokens) *API {
 	return &API{store, hub, livekit}
 }
 
@@ -80,7 +85,11 @@ func (a *API) join(w http.ResponseWriter, r *http.Request) {
 	a.hub.Broadcast(id, ws.Event{Type: "meeting.updated", Payload: publicMeeting(m, user.ID)})
 	response := map[string]any{"status": "waiting", "meeting": publicMeeting(m, user.ID)}
 	if m.Participants[user.ID] != nil {
-		token, _ := a.livekit.Token(m.LiveKitRoom, user, true)
+		token, err := a.livekit.Token(m.LiveKitRoom, user, true)
+		if err != nil {
+			problem(w, http.StatusBadGateway, "failed to issue media token")
+			return
+		}
 		response["status"], response["livekitToken"], response["livekitUrl"] = "admitted", token, a.livekit.PublicURL()
 	}
 	write(w, 200, response)

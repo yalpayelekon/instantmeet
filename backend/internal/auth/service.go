@@ -6,14 +6,13 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"errors"
+	"log/slog"
 	"net/http"
-	"net/url"
 	"strings"
 	"sync"
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
-	"github.com/google/uuid"
 	"github.com/instantmeet/instantmeet/backend/internal/config"
 	"github.com/instantmeet/instantmeet/backend/internal/models"
 	"golang.org/x/oauth2"
@@ -24,10 +23,16 @@ type contextKey string
 
 const userKey contextKey = "user"
 
+// UserRepository persists authenticated users (Postgres in production).
+type UserRepository interface {
+	UpsertUser(ctx context.Context, user models.User) error
+}
+
 type Service struct {
 	cfg    config.Config
 	oauth  *oauth2.Config
 	states sync.Map
+	users  UserRepository
 }
 
 type claims struct {
@@ -35,8 +40,8 @@ type claims struct {
 	jwt.RegisteredClaims
 }
 
-func New(cfg config.Config) *Service {
-	return &Service{cfg: cfg, oauth: &oauth2.Config{
+func New(cfg config.Config, users UserRepository) *Service {
+	return &Service{cfg: cfg, users: users, oauth: &oauth2.Config{
 		ClientID: cfg.GoogleClientID, ClientSecret: cfg.GoogleClientSecret,
 		RedirectURL: cfg.GoogleRedirectURL,
 		Scopes:      []string{"openid", "email", "profile"},
@@ -88,12 +93,23 @@ func (s *Service) DevLogin(w http.ResponseWriter, r *http.Request) {
 		http.NotFound(w, r)
 		return
 	}
-	user := models.User{ID: "dev-" + uuid.NewString(), Email: "demo@instantmeet.local", DisplayName: "Demo User"}
+	user := models.User{ID: "dev-local", GoogleID: "dev-local", Email: "demo@instantmeet.local", DisplayName: "Demo User"}
 	s.completeLogin(w, r, user)
 }
 
 func (s *Service) completeLogin(w http.ResponseWriter, r *http.Request, user models.User) {
-	token, _ := s.Sign(user, 12*time.Hour)
+	if s.users != nil {
+		if err := s.users.UpsertUser(r.Context(), user); err != nil {
+			slog.Error("persist user failed", "error", err, "user_id", user.ID)
+			http.Error(w, "failed to persist user", http.StatusInternalServerError)
+			return
+		}
+	}
+	token, err := s.Sign(user, 12*time.Hour)
+	if err != nil {
+		http.Error(w, "failed to issue session", http.StatusInternalServerError)
+		return
+	}
 	http.SetCookie(w, &http.Cookie{Name: "instantmeet_token", Value: token, Path: "/", HttpOnly: true, SameSite: http.SameSiteLaxMode, Secure: s.cfg.Environment == "production", MaxAge: 43200})
 	http.Redirect(w, r, s.cfg.FrontendURL, http.StatusTemporaryRedirect)
 }
@@ -120,9 +136,7 @@ func (s *Service) UserFromRequest(r *http.Request) (models.User, error) {
 		raw = strings.TrimPrefix(r.Header.Get("Authorization"), "Bearer ")
 	}
 	if raw == "" {
-		if q, err := url.QueryUnescape(r.URL.Query().Get("token")); err == nil {
-			raw = q
-		}
+		return models.User{}, errors.New("unauthorized")
 	}
 	var c claims
 	t, err := jwt.ParseWithClaims(raw, &c, func(t *jwt.Token) (any, error) {

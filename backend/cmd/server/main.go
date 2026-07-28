@@ -17,6 +17,7 @@ import (
 	"github.com/instantmeet/instantmeet/backend/internal/api"
 	"github.com/instantmeet/instantmeet/backend/internal/auth"
 	"github.com/instantmeet/instantmeet/backend/internal/config"
+	"github.com/instantmeet/instantmeet/backend/internal/db"
 	"github.com/instantmeet/instantmeet/backend/internal/meeting"
 	"github.com/instantmeet/instantmeet/backend/internal/services"
 	ws "github.com/instantmeet/instantmeet/backend/internal/websocket"
@@ -29,9 +30,19 @@ func main() {
 	}
 	logger := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelInfo}))
 	slog.SetDefault(logger)
-	authService := auth.New(cfg)
-	hub := ws.NewHub(authService)
-	handler := api.New(meeting.NewStore(), hub, services.NewLiveKit(cfg))
+
+	ctx := context.Background()
+	pool, err := db.Connect(ctx, cfg.DatabaseURL)
+	if err != nil {
+		slog.Error("database connection failed", "error", err)
+		os.Exit(1)
+	}
+	defer pool.Close()
+
+	authService := auth.New(cfg, pool)
+	store := meeting.NewStore()
+	hub := ws.NewHub(authService, store, cfg.FrontendURL)
+	handler := api.New(store, hub, services.NewLiveKit(cfg))
 
 	r := chi.NewRouter()
 	r.Use(middleware.RequestID, middleware.RealIP, middleware.Recoverer)
@@ -59,9 +70,9 @@ func main() {
 	stop := make(chan os.Signal, 1)
 	signal.Notify(stop, syscall.SIGINT, syscall.SIGTERM)
 	<-stop
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	shutdownCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
-	if err := server.Shutdown(ctx); err != nil {
+	if err := server.Shutdown(shutdownCtx); err != nil {
 		slog.Error("shutdown failed", "error", err)
 	}
 	slog.Info("server stopped")

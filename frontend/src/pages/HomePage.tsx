@@ -46,7 +46,7 @@ export function HomePage({ user, onLogout }: { user: User|null; onLogout: () => 
         <a className="button primary google" href="/api/login/google">
           <span className="google-g">G</span> Continue with Google <ArrowRight size={18}/>
         </a>
-        <a className="dev-link" href="/api/login/dev">Use local demo account</a>
+        {import.meta.env.DEV && <a className="dev-link" href="/api/login/dev">Use local demo account</a>}
         <small>One account. Nothing else stored.</small>
       </div> : <div className="launch-panel">
         {!createdUrl ? <>

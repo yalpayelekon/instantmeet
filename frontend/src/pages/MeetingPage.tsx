@@ -37,7 +37,7 @@ export function MeetingPage({ user }: { user: User }) {
     }
     if (event.type === 'chat.message' && event.payload) setJoin(current => current ? {...current, meeting:{...current.meeting,chat:[...current.meeting.chat,event.payload as Meeting['chat'][number]]}} : current)
   }, [navigate, refreshJoin, user.id])
-  useMeetingSocket(id, onSocket)
+  useMeetingSocket(join ? id : undefined, onSocket)
 
   const send = async (e: FormEvent) => { e.preventDefault(); if (!id || !message.trim()) return; const text=message; setMessage(''); await api.chat(id,text) }
   const leave = async () => { if (id) await api.leave(id).catch(()=>{}); navigate('/') }

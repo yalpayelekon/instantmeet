@@ -21,6 +21,10 @@ All `/api` endpoints except login and callback require the HttpOnly JWT cookie.
 | POST | `/api/meetings/{id}/end` | End and destroy meeting (host) |
 | GET | `/ws?meetingId={id}` | Meeting event stream |
 
+`/ws` requires a valid session cookie, an `Origin` matching `FRONTEND_URL`, and
+that the caller is already in the meeting (participant or waiting room). The
+socket is server→client only; client payloads are ignored.
+
 WebSocket event types include `meeting.updated`, `meeting.ended`,
 `participant.admitted`, `participant.rejected`, `participant.removed`,
 `participant.muted`, `participant.media`, and `chat.message`.
