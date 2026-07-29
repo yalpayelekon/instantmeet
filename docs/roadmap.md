@@ -24,16 +24,18 @@ Finished 2026-07-29. Shipped experience no longer has dead UI chrome.
 
 ---
 
-## Phase 1 — Quality and confidence
+## Phase 1 — Quality and confidence ✅
 
-| Item | Why | Effort |
-|------|-----|--------|
-| Frontend unit tests for auth hook, API client, meeting socket | Catch regressions without Docker | M |
-| Playwright (or similar) smoke: login → create → admit → chat | Proves the product loop | L |
-| Add frontend lint/typecheck/build to CI | Match backend CI maturity | S |
-| Fix or accept Vite bundle warning (code-split LiveKit route) | Faster first paint on home | M |
+Finished 2026-07-29. Frontend unit tests, a two-user browser smoke test, complete CI gates, and route-level code splitting are in place.
 
-**Exit criteria:** CI fails on broken API *or* broken primary UI path.
+| Item | Status |
+|------|--------|
+| Frontend unit tests for auth hook, API client, meeting socket | Done |
+| Playwright smoke: authenticate → create → admit → chat → end | Done |
+| Backend + frontend + e2e CI gates | Done |
+| Lazy-load LiveKit meeting route | Done |
+
+**Exit criteria met:** CI fails on a broken API, frontend contract, build, or primary UI path.
 
 ---
 
@@ -87,7 +89,7 @@ Defer indefinitely unless strategy changes: calendar sync, CRM, billing, recordi
 Suggested sequencing:
 
 ```text
-Phase 0 (polish) ✅ ──► Phase 1 (tests/CI) ──► Phase 2 (deploy hardening)
+Phase 0 (polish) ✅ ──► Phase 1 (tests/CI) ✅ ──► Phase 2 (deploy hardening)
                                               │
                                               └──► Phase 3 (Redis HA) if multi-instance needed
                                               └──► Phase 4 features as demand appears

@@ -99,6 +99,7 @@ func clone(m *models.Meeting) *models.Meeting {
 		p := *v
 		c.WaitingRoom[k] = &p
 	}
-	c.Chat = append([]models.ChatMessage(nil), m.Chat...)
+	c.Chat = make([]models.ChatMessage, len(m.Chat))
+	copy(c.Chat, m.Chat)
 	return &c
 }

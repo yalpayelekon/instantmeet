@@ -90,7 +90,7 @@ function MediaReconnectWatcher({ onStatus }: { onStatus: (s: 'connected' | 'reco
   return null
 }
 
-export function MeetingPage({ user }: { user: User }) {
+export default function MeetingPage({ user }: { user: User }) {
   const { id } = useParams()
   const navigate = useNavigate()
   const [join, setJoin] = useState<JoinResponse | null>(null)
@@ -136,7 +136,8 @@ export function MeetingPage({ user }: { user: User }) {
       return
     }
     if ((event.type === 'meeting.updated' || event.type.startsWith('participant.')) && event.payload) {
-      const meeting = event.payload as Meeting
+      const snapshot = event.payload as Meeting
+      const meeting = { ...snapshot, isHost: snapshot.hostId === user.id }
       setJoin(current => (current ? { ...current, meeting } : current))
     }
     if (event.type === 'chat.message' && event.payload) {

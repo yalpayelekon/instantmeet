@@ -1,13 +1,13 @@
 # Current state
 
-**Assessment date:** 2026-07-29 (updated after Phase 0)  
-**Verdict:** InstantMeet is a working single-node MVP for ephemeral video meetings. Phase 0 polish (pre-join, devices, Settings, reconnect UX, deploy docs) is complete. Remaining gaps are quality/CI, multi-instance scale, and optional product expansions.
+**Assessment date:** 2026-07-29 (updated after Phase 1)
+**Verdict:** InstantMeet is a tested single-node MVP for ephemeral video meetings. Phase 0 polish and Phase 1 quality gates are complete. The next focus is production hardening, followed by multi-instance scale only if needed.
 
 | Lens | Estimate | Meaning |
 |------|----------|---------|
-| Stated MVP scope | **~92%** | Create → pre-join → wait/admit → media → chat → host controls → teardown |
-| Production-ready self-host | **~65%** | Deploy checklist exists; single-node only; limited tests/ops |
-| Blended | **~78%** | Strong product core; next focus is Phase 1 tests/CI |
+| Stated MVP scope | **~94%** | Primary two-user product loop is covered end to end |
+| Production-ready self-host | **~72%** | CI and smoke coverage exist; production ops hardening remains |
+| Blended | **~83%** | Strong tested core; next focus is Phase 2 deploy hardening |
 
 ## Product intent (in scope)
 
@@ -68,7 +68,11 @@ Anything outside that list is explicitly out of product scope unless called out 
 - Distroless backend image; Nginx-served frontend
 - `/healthz`
 - Graceful Go shutdown
-- Backend unit tests + GitHub Actions Go workflow
+- Backend unit tests
+- Frontend unit tests for auth, API, and meeting WebSocket behavior
+- Playwright two-user create → admit → chat → teardown smoke test
+- Unified backend, frontend, and e2e GitHub Actions quality workflow
+- Lazy-loaded meeting route; initial JavaScript reduced from ~856 kB to ~240 kB
 - Architecture, API, and [deploy](deploy.md) docs
 
 ## Partial / unfinished
@@ -78,8 +82,7 @@ Anything outside that list is explicitly out of product scope unless called out 
 | Meeting `Secret` field | Unused | Generated on create; not used for join/auth |
 | Meeting state enum | Overspecified | `created` / `destroyed` exist; runtime mainly `waiting` → `active` → delete |
 | Redis | Provisioned only | Documented for future multi-instance; unused by app today |
-| Frontend tests | Missing | No unit/e2e suite; no frontend CI workflow |
-| Bundle size | Unoptimized | Vite warns on large JS chunk (~LiveKit client) |
+| Meeting media chunk | Large but deferred | LiveKit is isolated in the lazy meeting route; home does not download it |
 
 ## Intentionally absent (product scope)
 
@@ -98,19 +101,18 @@ These are **not** gaps relative to the README thesis:
 2. **Meeting UX polish:** No noise/background options, reactions, raise hand, or keyboard shortcuts
 3. **Single-node ceiling:** Cannot run multiple API replicas without Redis-backed store + WS pub/sub
 4. **Production ops:** TURN/TLS are documented in [deploy.md](deploy.md) but still operator-owned
-5. **Quality gates:** No frontend tests, no e2e path through create → admit → media
-6. **Observability:** Health check only; no metrics, tracing, or structured error reporting product
-7. **Unused secret:** Room secret suggests a future private-link model that is not implemented
+5. **Observability:** Health check and structured request logs only; no metrics or tracing
+6. **Unused secret:** Room secret suggests a future private-link model that is not implemented
 
 ## Test and CI signal
 
 | Area | Signal |
 |------|--------|
 | Backend `go test ./...` | Present (api, auth, meeting, websocket, db) |
-| CI (`.github/workflows/go.yml`) | Build + test on `main` push/PR |
-| Frontend tests | None |
-| Frontend CI | None |
-| E2E | None |
+| CI (`.github/workflows/quality.yml`) | Backend build/test, frontend lint/build/unit, then e2e |
+| Frontend tests | Vitest: API client, auth hook, meeting socket |
+| Frontend CI | `npm ci`, lint, production build, unit tests |
+| E2E | Playwright Chromium: two authenticated contexts through teardown |
 
 ## Deployment readiness
 
@@ -118,4 +120,4 @@ These are **not** gaps relative to the README thesis:
 
 **Not ready for without more work:** multi-instance API, zero-ops cloud SaaS, compliance-heavy deployments, or “Zoom-class” feature parity.
 
-See [roadmap.md](roadmap.md) for prioritized next work (Phase 1: tests/CI).
+See [roadmap.md](roadmap.md) for prioritized next work (Phase 2: self-host production hardening).
