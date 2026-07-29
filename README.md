@@ -75,6 +75,8 @@ The Vite server proxies API and WebSocket traffic to port 8080.
 
 ## Production notes
 
+See **[docs/deploy.md](docs/deploy.md)** for the full operator checklist. Summary:
+
 - Terminate TLS at Nginx or a cloud load balancer. WebRTC camera/microphone
   access requires HTTPS outside localhost.
 - Set `LIVEKIT_PUBLIC_URL` to the browser-reachable `wss://` endpoint.
@@ -85,6 +87,9 @@ The Vite server proxies API and WebSocket traffic to port 8080.
 
 See [docs/architecture.md](docs/architecture.md) and
 [docs/api.md](docs/api.md) for design and endpoint details.
+Status and planning live in [docs/current-state.md](docs/current-state.md) and
+[docs/roadmap.md](docs/roadmap.md).
+Deploy checklist: [docs/deploy.md](docs/deploy.md).
 
 ## License
 

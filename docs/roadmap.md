@@ -1,0 +1,98 @@
+# Roadmap
+
+Prioritized plan from the [current state](current-state.md) assessment (2026-07-29).
+Phases are sequential where noted; items inside a phase can often ship in parallel.
+
+Out of scope unless the product thesis changes: meeting history, recordings,
+scheduling, uploads, and subscriptions (see README).
+
+---
+
+## Phase 0 — Close MVP polish ✅
+
+Finished 2026-07-29. Shipped experience no longer has dead UI chrome.
+
+| Item | Status |
+|------|--------|
+| Settings wired to device panel | Done |
+| Device selection (mic/camera/speaker) | Done |
+| Pre-join preview | Done |
+| WS + LiveKit reconnect UX | Done |
+| `docs/deploy.md` operator checklist | Done |
+
+**Exit criteria met:** No inert chrome; guests configure devices before connect; reconnect banners; deploy docs for TLS/TURN.
+
+---
+
+## Phase 1 — Quality and confidence
+
+| Item | Why | Effort |
+|------|-----|--------|
+| Frontend unit tests for auth hook, API client, meeting socket | Catch regressions without Docker | M |
+| Playwright (or similar) smoke: login → create → admit → chat | Proves the product loop | L |
+| Add frontend lint/typecheck/build to CI | Match backend CI maturity | S |
+| Fix or accept Vite bundle warning (code-split LiveKit route) | Faster first paint on home | M |
+
+**Exit criteria:** CI fails on broken API *or* broken primary UI path.
+
+---
+
+## Phase 2 — Self-host production hardening
+
+| Item | Why | Effort |
+|------|-----|--------|
+| Example Nginx TLS / reverse-proxy snippets | HTTPS is required for WebRTC off-localhost | S |
+| Documented TURN (coturn) Compose profile | Restrictive NATs otherwise fail | M |
+| Structured logging + request metrics (at least latency/error rates) | Operable in production | M |
+| LiveKit room cleanup verification on meeting end | Avoid orphaned SFU rooms | S |
+| Use or delete unused meeting `Secret` | Either private invite tokens or remove dead field | S–M |
+| Secret rotation / `.env` production template review | Default LiveKit/JWT values are unsafe | S |
+
+**Exit criteria:** A stranger can follow deploy docs and run a single-node public instance safely.
+
+---
+
+## Phase 3 — Scale beyond one API process
+
+Only needed if you want multiple backend replicas or HA.
+
+| Item | Why | Effort |
+|------|-----|--------|
+| Redis-backed meeting store | Shared presence across instances | L |
+| Redis pub/sub (or equivalent) for WebSocket fan-out | Cross-node event delivery | L |
+| Idempotent LiveKit room delete | Safe under concurrent end/leave | M |
+| Sticky sessions *or* fully shared hub design | Avoid split-brain membership | M |
+
+**Exit criteria:** Two API replicas behind Nginx serve the same meeting correctly.
+
+---
+
+## Phase 4 — Optional product expansions
+
+Still compatible with “ephemeral,” but not required for the thesis:
+
+| Item | Notes |
+|------|--------|
+| Additional IdPs (OIDC/SAML, GitHub, email magic link) | Better for enterprise self-host |
+| Raise hand / reactions | Low-persistence UX; keep ephemeral |
+| Host lock meeting / lobby messages | Moderated rooms without history |
+| Password or secret-link join | Uses the unused `Secret` concept |
+| Mobile-friendly layout pass | Responsive polish, not native apps |
+| Captions via LiveKit / browser APIs | Accessibility |
+
+Defer indefinitely unless strategy changes: calendar sync, CRM, billing, recording pipelines, breakout rooms, admin analytics dashboards.
+
+---
+
+Suggested sequencing:
+
+```text
+Phase 0 (polish) ✅ ──► Phase 1 (tests/CI) ──► Phase 2 (deploy hardening)
+                                              │
+                                              └──► Phase 3 (Redis HA) if multi-instance needed
+                                              └──► Phase 4 features as demand appears
+```
+
+## Progress tracking
+
+Update this file when a phase exits. Keep [current-state.md](current-state.md) in sync (estimates + tables) when major milestones land.

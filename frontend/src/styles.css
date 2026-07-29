@@ -122,9 +122,53 @@ footer { border-top:1px solid #18181b; color:#52525b; font-size:12px; padding:24
 .chat-form button:disabled { color:#52525b }
 .chat-form svg { width:17px }
 .lk-start-audio-button { position:fixed!important; top:75px!important; left:50%!important; transform:translateX(-50%);z-index:10 }
+
+.connection-banner { position:fixed; top:12px; left:50%; transform:translateX(-50%); z-index:20; display:flex; align-items:center; gap:12px; background:#27272a; border:1px solid #3f3f46; color:#f4f4f5; padding:8px 14px; border-radius:999px; font-size:13px; box-shadow:0 10px 40px #0008 }
+.connection-banner button { border:0; background:#bef264; color:#151b0c; border-radius:999px; padding:4px 10px; font-weight:650; cursor:pointer; font-size:12px }
+
+.prejoin-page { min-height:100vh; display:grid; place-items:center; padding:32px 16px; background:radial-gradient(circle at center,rgba(190,242,100,.06),transparent 35%),#09090b }
+.prejoin { display:grid; gap:28px; width:min(920px,100%); grid-template-columns:1.1fr .9fr; align-items:center }
+.prejoin.waiting-mode { grid-template-columns:1fr; max-width:420px; margin:28px auto 0; text-align:left }
+.prejoin.waiting-mode .prejoin-copy h1 { font-size:18px; margin:0 0 6px }
+.prejoin.waiting-mode .prejoin-copy p { font-size:13px; margin:0 0 12px }
+.prejoin-preview { position:relative; aspect-ratio:16/10; background:#18181b; border:1px solid #27272a; border-radius:18px; overflow:hidden; min-height:220px }
+.prejoin-preview video { width:100%; height:100%; object-fit:cover; display:block; transform:scaleX(-1) }
+.prejoin-preview video.hidden-video { opacity:0; position:absolute; inset:0 }
+.prejoin-placeholder { position:absolute; inset:0; display:grid; place-content:center; gap:8px; color:#71717a; background:#18181b }
+.prejoin-placeholder svg { width:36px; margin:auto }
+.prejoin-toggles { position:absolute; left:50%; bottom:14px; transform:translateX(-50%); display:flex; gap:10px }
+.prejoin-toggles button { width:46px; height:46px; border:0; border-radius:50%; background:#27272acc; color:white; display:grid; place-items:center; cursor:pointer; backdrop-filter:blur(8px) }
+.prejoin-toggles button.off { background:#ef4444 }
+.prejoin-toggles svg { width:18px }
+.mic-live { position:absolute; top:12px; left:12px; font-size:11px; background:#18181bcc; border:1px solid #3f3f46; padding:4px 8px; border-radius:999px; color:#bef264 }
+.prejoin-copy h1 { letter-spacing:-.04em; margin:0 0 8px; font-size:clamp(28px,4vw,40px) }
+.prejoin-copy > p { color:#a1a1aa; line-height:1.55; margin:0 0 18px }
+.prejoin-warn { color:#fbbf24 !important; font-size:13px }
+.prejoin-actions { display:flex; gap:10px; margin-top:18px; flex-wrap:wrap }
+.device-selects { display:grid; gap:12px }
+.device-selects.compact { gap:8px }
+.device-selects label { display:grid; gap:6px; text-align:left }
+.device-selects span { font-size:11px; color:#71717a; text-transform:uppercase; letter-spacing:.08em }
+.device-selects select { width:100%; background:#18181b; color:#f4f4f5; border:1px solid #3f3f46; border-radius:10px; padding:10px 12px; outline:0 }
+.device-selects select:focus { border-color:#84cc16 }
+.waiting-page.with-prejoin { justify-content:flex-start; padding:48px 16px 32px }
+
+.settings-panel { padding:16px 18px; overflow-y:auto; display:grid; gap:16px }
+.settings-copy { color:#71717a; font-size:13px; line-height:1.5; margin:0 }
+.settings-toggles { display:grid; gap:8px }
+.settings-toggles button { display:flex; align-items:center; gap:10px; border:0; background:#202024; color:#f4f4f5; border-radius:10px; padding:12px 14px; cursor:pointer; text-align:left }
+.settings-toggles button.off { color:#fca5a5 }
+.settings-toggles svg { width:18px }
+
+.media-recover { position:absolute; inset:68px 16px 92px; z-index:6; background:#09090bee; display:grid; place-content:center; text-align:center; gap:12px; border-radius:14px }
+.media-recover h2 { margin:0; letter-spacing:-.03em }
+.media-recover p { color:#a1a1aa; max-width:420px; margin:0 auto 8px; line-height:1.55 }
+.media-recover .button { margin-inline:6px }
+
 @media(max-width:760px){
   .shell{width:min(100% - 28px,1180px)} .nav{height:68px}.github-link{display:none}.hero{padding:78px 0 65px}.hero h1{font-size:54px}.hero-copy{font-size:16px}
   .launch-panel,.created-box{flex-direction:column;align-items:stretch}.join-box input{width:100%}.join-box{width:100%}.promise{align-items:flex-start;gap:35px;flex-direction:column}.stats{gap:22px}footer span{display:none}
-  .meeting-header .brand span:last-child{display:none}.meeting-title{margin-left:auto;margin-right:12px}.meeting-shell{padding-inline:8px}.video-grid{grid-template-columns:1fr}.controls{grid-template-columns:auto 1fr;padding:0 10px}.meeting-clock{display:none}.control-center{justify-content:flex-start}.control-right button:last-child{display:none}.side-panel{left:8px;right:8px;width:auto}.control-center button,.control-right button{width:40px;height:40px}
+  .meeting-header .brand span:last-child{display:none}.meeting-title{margin-left:auto;margin-right:12px}.meeting-shell{padding-inline:8px}.video-grid{grid-template-columns:1fr}.controls{grid-template-columns:auto 1fr;padding:0 10px}.meeting-clock{display:none}.control-center{justify-content:flex-start}.side-panel{left:8px;right:8px;width:auto}.control-center button,.control-right button{width:40px;height:40px}
+  .prejoin{grid-template-columns:1fr}.prejoin-actions{justify-content:center}
 }
 
