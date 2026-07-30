@@ -87,6 +87,22 @@ See **[docs/deploy.md](docs/deploy.md)** for the full operator checklist. Summar
 
 See [docs/architecture.md](docs/architecture.md) and
 [docs/api.md](docs/api.md) for design and endpoint details.
+
+## Production deployment
+
+The repository includes a hardened single-server deployment:
+
+1. Point the root, `www`, and `livekit` DNS records to the server IPv4 address.
+2. Clone the repository onto an Ubuntu server.
+3. Run `sudo bash scripts/bootstrap-ubuntu.sh`.
+4. Copy `.env.production.example` to `.env.production` and fill in fresh
+   secrets plus Google OAuth credentials.
+5. Run `bash scripts/deploy.sh`.
+
+Caddy obtains and renews public TLS certificates automatically. The production
+firewall exposes HTTPS, LiveKit's ICE/TCP fallback, TURN/UDP, and the configured
+WebRTC UDP range. PostgreSQL, Redis, application APIs, and LiveKit signaling
+remain private to the Docker network.
 Status and planning live in [docs/current-state.md](docs/current-state.md) and
 [docs/roadmap.md](docs/roadmap.md).
 Deploy checklist: [docs/deploy.md](docs/deploy.md).
