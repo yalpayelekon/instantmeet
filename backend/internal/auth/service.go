@@ -51,7 +51,7 @@ func New(cfg config.Config, users UserRepository) *Service {
 
 func (s *Service) Login(w http.ResponseWriter, r *http.Request) {
 	if s.oauth.ClientID == "" {
-		http.Error(w, `{"error":"Google OAuth is not configured"}`, http.StatusServiceUnavailable)
+		oauthError(w, r, "not_configured", http.StatusServiceUnavailable)
 		return
 	}
 	state := randomState()
@@ -63,25 +63,25 @@ func (s *Service) Callback(w http.ResponseWriter, r *http.Request) {
 	state := r.URL.Query().Get("state")
 	expires, ok := s.states.LoadAndDelete(state)
 	if !ok || time.Now().After(expires.(time.Time)) {
-		http.Error(w, "invalid OAuth state", 400)
+		oauthError(w, r, "invalid_state", http.StatusBadRequest)
 		return
 	}
 	tok, err := s.oauth.Exchange(r.Context(), r.URL.Query().Get("code"))
 	if err != nil {
-		http.Error(w, "OAuth exchange failed", 401)
+		oauthError(w, r, "exchange_failed", http.StatusUnauthorized)
 		return
 	}
 	req, _ := http.NewRequestWithContext(r.Context(), http.MethodGet, "https://openidconnect.googleapis.com/v1/userinfo", nil)
 	req.Header.Set("Authorization", "Bearer "+tok.AccessToken)
 	res, err := http.DefaultClient.Do(req)
 	if err != nil || res.StatusCode != http.StatusOK {
-		http.Error(w, "profile lookup failed", 401)
+		oauthError(w, r, "profile_failed", http.StatusUnauthorized)
 		return
 	}
 	defer res.Body.Close()
 	var profile struct{ Sub, Email, Name, Picture string }
 	if json.NewDecoder(res.Body).Decode(&profile) != nil {
-		http.Error(w, "invalid profile", 401)
+		oauthError(w, r, "invalid_profile", http.StatusUnauthorized)
 		return
 	}
 	user := models.User{ID: profile.Sub, GoogleID: profile.Sub, Email: profile.Email, DisplayName: profile.Name, Avatar: profile.Picture}
@@ -101,13 +101,13 @@ func (s *Service) completeLogin(w http.ResponseWriter, r *http.Request, user mod
 	if s.users != nil {
 		if err := s.users.UpsertUser(r.Context(), user); err != nil {
 			slog.Error("persist user failed", "error", err, "user_id", user.ID)
-			http.Error(w, "failed to persist user", http.StatusInternalServerError)
+			oauthError(w, r, "persist_failed", http.StatusInternalServerError)
 			return
 		}
 	}
 	token, err := s.Sign(user, 12*time.Hour)
 	if err != nil {
-		http.Error(w, "failed to issue session", http.StatusInternalServerError)
+		oauthError(w, r, "session_failed", http.StatusInternalServerError)
 		return
 	}
 	http.SetCookie(w, &http.Cookie{Name: "instantmeet_token", Value: token, Path: "/", HttpOnly: true, SameSite: http.SameSiteLaxMode, Secure: s.cfg.Environment == "production", MaxAge: 43200})
@@ -171,4 +171,24 @@ func randomState() string {
 	b := make([]byte, 24)
 	_, _ = rand.Read(b)
 	return base64.RawURLEncoding.EncodeToString(b)
+}
+
+var oauthErrors = map[string][2]string{
+	"not_configured": {"Google login is not configured.", "Google ile giriş yapılandırılmamış."},
+	"invalid_state":  {"The login request expired or is invalid. Please try again.", "Giriş isteğinin süresi dolmuş veya istek geçersiz. Lütfen yeniden deneyin."},
+	"exchange_failed": {"Google login could not be completed. Please try again.",
+		"Google ile giriş tamamlanamadı. Lütfen yeniden deneyin."},
+	"profile_failed":  {"Your Google profile could not be retrieved.", "Google profiliniz alınamadı."},
+	"invalid_profile": {"Google returned an invalid profile.", "Google geçersiz bir profil döndürdü."},
+	"persist_failed":  {"Your account could not be saved.", "Hesabınız kaydedilemedi."},
+	"session_failed":  {"Your session could not be created.", "Oturumunuz oluşturulamadı."},
+}
+
+func oauthError(w http.ResponseWriter, r *http.Request, key string, status int) {
+	message := oauthErrors[key][0]
+	firstLanguage := strings.ToLower(strings.TrimSpace(strings.Split(r.Header.Get("Accept-Language"), ",")[0]))
+	if firstLanguage == "tr" || strings.HasPrefix(firstLanguage, "tr-") {
+		message = oauthErrors[key][1]
+	}
+	http.Error(w, message, status)
 }

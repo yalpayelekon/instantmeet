@@ -23,6 +23,7 @@ async function authenticatedContext(
 
   const context = await browser.newContext({
     permissions: ['camera', 'microphone'],
+    locale: 'en-US',
   })
   await context.addCookies([{
     name: 'instantmeet_token',
@@ -61,7 +62,21 @@ test('host creates, admits, chats with guest, and ends a meeting', async ({ brow
     )
 
     await host.evaluate(disableMedia, roomCode)
+    let hostJoinRequests = 0
+    host.on('request', request => {
+      if (request.method() === 'POST' && request.url().endsWith(`/api/meetings/${roomCode}/join`)) {
+        hostJoinRequests += 1
+      }
+    })
     await host.getByRole('button', { name: /enter room/i }).click()
+    await expect(host.getByRole('button', { name: /join now/i })).toBeVisible()
+    expect(hostJoinRequests).toBe(1)
+
+    await host.getByLabel('Language').selectOption('tr')
+    await expect(host.getByRole('button', { name: /şimdi katıl/i })).toBeVisible()
+    expect(hostJoinRequests).toBe(1)
+    await host.getByLabel('Dil').selectOption('en')
+
     await host.getByRole('button', { name: /join now/i }).click()
     await expect(host.locator('.meeting-shell')).toBeVisible()
 

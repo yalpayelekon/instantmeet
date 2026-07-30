@@ -13,6 +13,8 @@ import {
   Check, Copy, LogOut, MessageSquare, Mic, MicOff, MonitorUp, PhoneOff, Send, Settings, Shield, Users, Video, VideoOff, X,
 } from 'lucide-react'
 import { useNavigate, useParams } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
+import { LanguageSwitcher } from '../components/LanguageSwitcher'
 import { PreJoin } from '../components/PreJoin'
 import { useMeetingSocket, type SocketEvent, type SocketStatus } from '../hooks/useMeetingSocket'
 import { DeviceSelects } from '../components/DeviceSelects'
@@ -43,27 +45,28 @@ function ConnectionBanner({
   mediaStatus: 'connected' | 'reconnecting' | 'disconnected'
   onRetryWs: () => void
 }) {
+  const { t } = useTranslation()
   if (wsStatus === 'open' && mediaStatus === 'connected') return null
   const wsBad = wsStatus === 'reconnecting' || wsStatus === 'connecting' || wsStatus === 'closed'
   const mediaBad = mediaStatus === 'reconnecting' || mediaStatus === 'disconnected'
   if (!wsBad && !mediaBad) return null
 
-  let message = 'Reconnecting…'
+  let message = t('meeting.reconnecting')
   if (mediaStatus === 'disconnected' && (wsStatus === 'closed' || wsStatus === 'reconnecting')) {
-    message = 'Connection lost'
+    message = t('meeting.connectionLost')
   } else if (mediaStatus === 'reconnecting') {
-    message = 'Reconnecting to media…'
+    message = t('meeting.reconnectingMedia')
   } else if (wsStatus === 'reconnecting' || wsStatus === 'connecting') {
-    message = 'Reconnecting…'
+    message = t('meeting.reconnecting')
   } else if (wsStatus === 'closed' || mediaStatus === 'disconnected') {
-    message = 'Connection lost'
+    message = t('meeting.connectionLost')
   }
 
   return (
     <div className="connection-banner" role="status">
       <span>{message}</span>
       {(wsStatus === 'closed' || wsStatus === 'reconnecting' || mediaStatus === 'disconnected') && (
-        <button type="button" onClick={onRetryWs}>Retry</button>
+        <button type="button" onClick={onRetryWs}>{t('common.retry')}</button>
       )}
     </div>
   )
@@ -93,6 +96,7 @@ function MediaReconnectWatcher({ onStatus }: { onStatus: (s: 'connected' | 'reco
 export default function MeetingPage({ user }: { user: User }) {
   const { id } = useParams()
   const navigate = useNavigate()
+  const { t, i18n } = useTranslation()
   const [join, setJoin] = useState<JoinResponse | null>(null)
   const [error, setError] = useState('')
   const [panel, setPanel] = useState<'people' | 'chat' | 'settings' | null>(null)
@@ -106,8 +110,8 @@ export default function MeetingPage({ user }: { user: User }) {
     if (!id) return
     try {
       setJoin(await api.join(id))
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'Unable to join')
+    } catch {
+      setError('meeting.unableToJoin')
     }
   }, [id])
 
@@ -132,7 +136,7 @@ export default function MeetingPage({ user }: { user: User }) {
       return
     }
     if (event.type === 'participant.rejected' && event.userId === user.id) {
-      setError('The host declined your request.')
+      setError('meeting.hostDeclined')
       return
     }
     if ((event.type === 'meeting.updated' || event.type.startsWith('participant.')) && event.payload) {
@@ -157,7 +161,7 @@ export default function MeetingPage({ user }: { user: User }) {
     navigate('/')
   }
   const end = async () => {
-    if (id && confirm('End this meeting for everyone?')) {
+    if (id && confirm(t('meeting.endConfirm'))) {
       intentionalLeave.current = true
       await api.end(id)
       navigate('/')
@@ -189,9 +193,9 @@ export default function MeetingPage({ user }: { user: User }) {
     return (
       <div className="center-state">
         <span className="brand-mark">I</span>
-        <h2>Couldn’t enter this room</h2>
-        <p>{error}</p>
-        <button className="button primary" onClick={() => navigate('/')}>Back home</button>
+        <h2>{t('meeting.enterFailed')}</h2>
+        <p>{t(error)}</p>
+        <button className="button primary" onClick={() => navigate('/')}>{t('meeting.backHome')}</button>
       </div>
     )
   }
@@ -199,7 +203,7 @@ export default function MeetingPage({ user }: { user: User }) {
     return (
       <div className="center-state">
         <div className="pulse-ring" />
-        <h2>Finding your room…</h2>
+        <h2>{t('meeting.findingRoom')}</h2>
       </div>
     )
   }
@@ -207,13 +211,14 @@ export default function MeetingPage({ user }: { user: User }) {
   if (join.status === 'waiting') {
     return (
       <div className="waiting-page with-prejoin">
+        <div className="standalone-language"><LanguageSwitcher /></div>
         <div className="waiting-visual">
           <div className="avatar-large">{user.avatar ? <img src={user.avatar} alt="" /> : user.displayName[0]}</div>
           <span className="orbit one" />
           <span className="orbit two" />
         </div>
-        <h1>You’re ready to join</h1>
-        <p>The host knows you’re here. We’ll bring you in as soon as they approve your request.</p>
+        <h1>{t('meeting.readyToJoin')}</h1>
+        <p>{t('meeting.hostNotified')}</p>
         <div className="waiting-code">
           <span>{id}</span>
           <button type="button" onClick={copy}>{copied ? <Check /> : <Copy />}</button>
@@ -221,8 +226,8 @@ export default function MeetingPage({ user }: { user: User }) {
         <PreJoin
           meetingId={id!}
           waiting
-          title="Set up your devices"
-          subtitle="These preferences carry into the call when you’re admitted."
+          title={t('meeting.setupDevices')}
+          subtitle={t('meeting.setupDevicesHint')}
           onLeave={leave}
         />
         <ConnectionBanner wsStatus={wsStatus} mediaStatus="connected" onRetryWs={retryNow} />
@@ -233,6 +238,7 @@ export default function MeetingPage({ user }: { user: User }) {
   if (!ready) {
     return (
       <div className="prejoin-page">
+        <div className="standalone-language"><LanguageSwitcher /></div>
         <PreJoin
           meetingId={id!}
           onJoin={() => setReady(true)}
@@ -267,11 +273,14 @@ export default function MeetingPage({ user }: { user: User }) {
             <span>InstantMeet</span>
           </a>
           <div className="meeting-title">
-            <span className="live-dot" /> Live <span>·</span> {id}
+            <span className="live-dot" /> {t('meeting.live')} <span>·</span> {id}
           </div>
-          <button className="icon-button" onClick={copy} title="Copy meeting link" type="button">
-            {copied ? <Check /> : <Copy />}
-          </button>
+          <div className="meeting-header-actions">
+            <LanguageSwitcher compact />
+            <button className="icon-button" onClick={copy} title={t('meeting.copyMeetingLink')} type="button">
+              {copied ? <Check /> : <Copy />}
+            </button>
+          </div>
         </header>
         <VideoGrid />
         <MeetingControls
@@ -286,9 +295,9 @@ export default function MeetingPage({ user }: { user: User }) {
           <aside className="side-panel">
             <div className="panel-head">
               <h2>
-                {panel === 'people' && `People (${people.length})`}
-                {panel === 'chat' && 'In-call messages'}
-                {panel === 'settings' && 'Settings'}
+                {panel === 'people' && t('meeting.peopleCount', { count: people.length })}
+                {panel === 'chat' && t('meeting.messages')}
+                {panel === 'settings' && t('common.settings')}
               </h2>
               <button type="button" onClick={() => setPanel(null)}><X /></button>
             </div>
@@ -296,7 +305,7 @@ export default function MeetingPage({ user }: { user: User }) {
               <div className="people-list">
                 {join.meeting.isHost && Object.values(join.meeting.waitingRoom).length > 0 && (
                   <section>
-                    <h3>Waiting to join</h3>
+                    <h3>{t('meeting.waitingToJoin')}</h3>
                     {Object.values(join.meeting.waitingRoom).map(p => (
                       <div className="person" key={p.userId}>
                         <Avatar name={p.displayName} src={p.avatar} />
@@ -308,19 +317,19 @@ export default function MeetingPage({ user }: { user: User }) {
                   </section>
                 )}
                 <section>
-                  <h3>In this meeting</h3>
+                  <h3>{t('meeting.inMeeting')}</h3>
                   {people.map(p => (
                     <div className="person" key={p.userId}>
                       <Avatar name={p.displayName} src={p.avatar} />
                       <span>
-                        {p.displayName}{p.userId === user.id && ' (you)'}
-                        <small>{p.isHost && <><Shield /> Host</>}</small>
+                        {p.displayName}{p.userId === user.id && ` (${t('meeting.you')})`}
+                        <small>{p.isHost && <><Shield /> {t('meeting.host')}</>}</small>
                       </span>
                       {!p.micEnabled && <MicOff className="muted-icon" />}
                       {join.meeting.isHost && !p.isHost && (
                         <div className="person-actions">
-                          <button type="button" onClick={() => api.action(id!, 'mute', p.userId)} title="Mute"><MicOff /></button>
-                          <button type="button" onClick={() => api.action(id!, 'remove', p.userId)} title="Remove"><LogOut /></button>
+                          <button type="button" onClick={() => api.action(id!, 'mute', p.userId)} title={t('common.mute')}><MicOff /></button>
+                          <button type="button" onClick={() => api.action(id!, 'remove', p.userId)} title={t('meeting.remove')}><LogOut /></button>
                         </div>
                       )}
                     </div>
@@ -334,14 +343,14 @@ export default function MeetingPage({ user }: { user: User }) {
                   {join.meeting.chat.length === 0 ? (
                     <div className="empty-chat">
                       <MessageSquare />
-                      <p>Messages are visible to everyone here and disappear when the meeting ends.</p>
+                      <p>{t('meeting.emptyChat')}</p>
                     </div>
                   ) : (
                     join.meeting.chat.map(m => (
                       <div className="message" key={m.id}>
                         <strong>
                           {m.displayName}
-                          <time>{new Date(m.sentAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</time>
+                          <time>{new Date(m.sentAt).toLocaleTimeString(i18n.language, { hour: '2-digit', minute: '2-digit' })}</time>
                         </strong>
                         <p>{m.text}</p>
                       </div>
@@ -349,7 +358,7 @@ export default function MeetingPage({ user }: { user: User }) {
                   )}
                 </div>
                 <form className="chat-form" onSubmit={send}>
-                  <input maxLength={1000} placeholder="Send a message" value={message} onChange={e => setMessage(e.target.value)} />
+                  <input maxLength={1000} placeholder={t('meeting.sendMessage')} value={message} onChange={e => setMessage(e.target.value)} />
                   <button type="submit" disabled={!message.trim()}><Send /></button>
                 </form>
               </>
@@ -359,8 +368,8 @@ export default function MeetingPage({ user }: { user: User }) {
         )}
         {mediaStatus === 'disconnected' && (
           <div className="media-recover">
-            <h2>Media disconnected</h2>
-            <p>Your connection to the room dropped. You can retry without leaving the meeting.</p>
+            <h2>{t('meeting.mediaDisconnected')}</h2>
+            <p>{t('meeting.mediaDisconnectedHint')}</p>
             <button
               type="button"
               className="button primary"
@@ -370,19 +379,20 @@ export default function MeetingPage({ user }: { user: User }) {
                 requestAnimationFrame(() => setReady(true))
               }}
             >
-              Reconnect media
+              {t('meeting.reconnectMedia')}
             </button>
-            <button type="button" className="button ghost" onClick={leave}>Leave meeting</button>
+            <button type="button" className="button ghost" onClick={leave}>{t('meeting.leaveMeeting')}</button>
           </div>
         )}
         <RoomAudioRenderer />
-        <StartAudio label="Enable meeting audio" />
+        <StartAudio label={t('meeting.enableAudio')} />
       </div>
     </LiveKitRoom>
   )
 }
 
 function SettingsPanel({ meetingId }: { meetingId: string }) {
+  const { t } = useTranslation()
   const media = useMediaDevices(meetingId)
   const room = useRoomContext()
   const { localParticipant } = useLocalParticipant()
@@ -398,7 +408,7 @@ function SettingsPanel({ meetingId }: { meetingId: string }) {
 
   return (
     <div className="settings-panel">
-      <p className="settings-copy">Device choices apply to this meeting only and stay until you close the tab.</p>
+      <p className="settings-copy">{t('meeting.deviceChoices')}</p>
       <DeviceSelects
         audioInputs={media.audioInputs}
         videoInputs={media.videoInputs}
@@ -425,7 +435,7 @@ function SettingsPanel({ meetingId }: { meetingId: string }) {
           }}
         >
           {media.prefs.micEnabled ? <Mic /> : <MicOff />}
-          <span>{media.prefs.micEnabled ? 'Mic on' : 'Mic off'}</span>
+          <span>{media.prefs.micEnabled ? t('meeting.micOn') : t('meeting.micOff')}</span>
         </button>
         <button
           type="button"
@@ -439,10 +449,10 @@ function SettingsPanel({ meetingId }: { meetingId: string }) {
           }}
         >
           {media.prefs.cameraEnabled ? <Video /> : <VideoOff />}
-          <span>{media.prefs.cameraEnabled ? 'Camera on' : 'Camera off'}</span>
+          <span>{media.prefs.cameraEnabled ? t('meeting.cameraOn') : t('meeting.cameraOff')}</span>
         </button>
       </div>
-      {media.permissionError && <p className="prejoin-warn">{media.permissionError}</p>}
+      {media.permissionError && <p className="prejoin-warn">{t(media.permissionError)}</p>}
     </div>
   )
 }
@@ -457,11 +467,18 @@ function MeetingControls({
   leave: () => void
   end: () => void
 }) {
+  const { t, i18n } = useTranslation()
   const prefs = loadMediaPrefs(id)
   const [mic, setMic] = useState(prefs.micEnabled)
   const [camera, setCamera] = useState(prefs.cameraEnabled)
   const [screen, setScreen] = useState(false)
+  const [now, setNow] = useState(() => new Date())
   const { localParticipant } = useLocalParticipant()
+
+  useEffect(() => {
+    const timer = window.setInterval(() => setNow(new Date()), 1000)
+    return () => window.clearInterval(timer)
+  }, [])
 
   useEffect(() => {
     const mute = () => {
@@ -504,18 +521,18 @@ function MeetingControls({
 
   return (
     <div className="controls">
-      <div className="meeting-clock">{new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</div>
+      <div className="meeting-clock">{now.toLocaleTimeString(i18n.language, { hour: '2-digit', minute: '2-digit' })}</div>
       <div className="control-center">
-        <button type="button" className={!mic ? 'off' : ''} onClick={() => toggle('mic')} title={mic ? 'Mute' : 'Unmute'}>
+        <button type="button" className={!mic ? 'off' : ''} onClick={() => toggle('mic')} title={mic ? t('common.mute') : t('common.unmute')}>
           {mic ? <Mic /> : <MicOff />}
         </button>
-        <button type="button" className={!camera ? 'off' : ''} onClick={() => toggle('camera')} title={camera ? 'Turn camera off' : 'Turn camera on'}>
+        <button type="button" className={!camera ? 'off' : ''} onClick={() => toggle('camera')} title={camera ? t('common.cameraOff') : t('common.cameraOn')}>
           {camera ? <Video /> : <VideoOff />}
         </button>
-        <button type="button" className={screen ? 'active' : ''} onClick={() => toggle('screen')} title="Share screen">
+        <button type="button" className={screen ? 'active' : ''} onClick={() => toggle('screen')} title={t('meeting.shareScreen')}>
           <MonitorUp />
         </button>
-        <button type="button" className="end-call" onClick={meeting.isHost ? end : leave} title={meeting.isHost ? 'End for everyone' : 'Leave'}>
+        <button type="button" className="end-call" onClick={meeting.isHost ? end : leave} title={meeting.isHost ? t('meeting.endForEveryone') : t('common.leave')}>
           <PhoneOff />
         </button>
       </div>
@@ -540,7 +557,7 @@ function MeetingControls({
           type="button"
           onClick={() => setPanel(panel === 'settings' ? null : 'settings')}
           className={panel === 'settings' ? 'active' : ''}
-          title="Settings"
+          title={t('common.settings')}
         >
           <Settings />
         </button>

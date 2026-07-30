@@ -4,6 +4,13 @@ InstantMeet is an open-source, self-hostable video meeting app for one-click,
 ephemeral conversations. It has no meeting history, recordings, scheduling,
 uploads, subscriptions, or artificial time limit.
 
+## Live demo
+
+Try InstantMeet at [toplanti.online](https://toplanti.online).
+
+> The public demo URL may change. InstantMeet remains fully self-hostable, and
+> public demo availability and capacity may vary during testing.
+
 ## What works
 
 - Google OAuth 2.0 authentication and secure JWT cookies

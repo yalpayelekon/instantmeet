@@ -39,6 +39,7 @@ export function useMeetingSocket(meetingId: string | undefined, onEvent: (event:
       try { onEventRef.current(JSON.parse(message.data)) } catch { /* ignore malformed events */ }
     }
     socket.onclose = () => {
+      if (socketRef.current !== socket) return
       socketRef.current = null
       if (manualCloseRef.current || !meetingId) {
         setStatus('closed')
@@ -67,8 +68,9 @@ export function useMeetingSocket(meetingId: string | undefined, onEvent: (event:
     return () => {
       manualCloseRef.current = true
       clearTimer()
-      socketRef.current?.close()
+      const socket = socketRef.current
       socketRef.current = null
+      socket?.close()
     }
   }, [meetingId, connect, retryTick])
 
@@ -76,8 +78,9 @@ export function useMeetingSocket(meetingId: string | undefined, onEvent: (event:
     if (!meetingId) return
     manualCloseRef.current = true
     clearTimer()
-    socketRef.current?.close()
+    const socket = socketRef.current
     socketRef.current = null
+    socket?.close()
     retryRef.current = 0
     manualCloseRef.current = false
     setRetryTick(t => t + 1)

@@ -1,4 +1,5 @@
 import type { MediaPrefs } from '../hooks/useMediaDevices'
+import { useTranslation } from 'react-i18next'
 
 export type DeviceSelectProps = {
   audioInputs: MediaDeviceInfo[]
@@ -13,40 +14,41 @@ export type DeviceSelectProps = {
 export function DeviceSelects({
   audioInputs, videoInputs, audioOutputs, prefs, setPrefs, supportsOutput, compact,
 }: DeviceSelectProps) {
+  const { t } = useTranslation()
   return (
     <div className={compact ? 'device-selects compact' : 'device-selects'}>
       <label>
-        <span>Microphone</span>
+        <span>{t('devices.microphone')}</span>
         <select
-          aria-label="Microphone"
+          aria-label={t('devices.microphone')}
           value={prefs.audioDeviceId}
           onChange={e => setPrefs({ audioDeviceId: e.target.value })}
         >
-          {audioInputs.length === 0 && <option value="">No microphone found</option>}
-          {audioInputs.map(d => <option key={d.deviceId} value={d.deviceId}>{d.label || 'Microphone'}</option>)}
+          {audioInputs.length === 0 && <option value="">{t('devices.noMicrophone')}</option>}
+          {audioInputs.map(d => <option key={d.deviceId} value={d.deviceId}>{d.label || t('devices.microphone')}</option>)}
         </select>
       </label>
       <label>
-        <span>Camera</span>
+        <span>{t('devices.camera')}</span>
         <select
-          aria-label="Camera"
+          aria-label={t('devices.camera')}
           value={prefs.videoDeviceId}
           onChange={e => setPrefs({ videoDeviceId: e.target.value })}
         >
-          {videoInputs.length === 0 && <option value="">No camera found</option>}
-          {videoInputs.map(d => <option key={d.deviceId} value={d.deviceId}>{d.label || 'Camera'}</option>)}
+          {videoInputs.length === 0 && <option value="">{t('devices.noCamera')}</option>}
+          {videoInputs.map(d => <option key={d.deviceId} value={d.deviceId}>{d.label || t('devices.camera')}</option>)}
         </select>
       </label>
       {supportsOutput && (
         <label>
-          <span>Speaker</span>
+          <span>{t('devices.speaker')}</span>
           <select
-            aria-label="Speaker"
+            aria-label={t('devices.speaker')}
             value={prefs.outputDeviceId}
             onChange={e => setPrefs({ outputDeviceId: e.target.value })}
           >
-            {audioOutputs.length === 0 && <option value="">Default speaker</option>}
-            {audioOutputs.map(d => <option key={d.deviceId} value={d.deviceId}>{d.label || 'Speaker'}</option>)}
+            {audioOutputs.length === 0 && <option value="">{t('devices.defaultSpeaker')}</option>}
+            {audioOutputs.map(d => <option key={d.deviceId} value={d.deviceId}>{d.label || t('devices.speaker')}</option>)}
           </select>
         </label>
       )}

@@ -1,5 +1,6 @@
 import { useEffect, useRef } from 'react'
 import { Mic, MicOff, Video, VideoOff } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 import { DeviceSelects } from './DeviceSelects'
 import { type MediaPrefs, useMediaDevices } from '../hooks/useMediaDevices'
 
@@ -16,13 +17,14 @@ type Props = {
 
 export function PreJoin({
   meetingId,
-  title = 'Ready to join?',
-  subtitle = 'Check your camera and mic before you enter the room.',
-  primaryLabel = 'Join now',
+  title,
+  subtitle,
+  primaryLabel,
   onJoin,
   onLeave,
   waiting,
 }: Props) {
+  const { t } = useTranslation()
   const media = useMediaDevices(meetingId)
   const videoRef = useRef<HTMLVideoElement>(null)
   const streamRef = useRef<MediaStream | null>(null)
@@ -85,7 +87,7 @@ export function PreJoin({
         {!media.prefs.cameraEnabled && (
           <div className="prejoin-placeholder">
             <VideoOff />
-            <span>Camera is off</span>
+            <span>{t('prejoin.cameraOff')}</span>
           </div>
         )}
         <div className="prejoin-toggles">
@@ -93,7 +95,7 @@ export function PreJoin({
             type="button"
             className={!media.prefs.micEnabled ? 'off' : ''}
             onClick={() => toggle('micEnabled')}
-            title={media.prefs.micEnabled ? 'Mute' : 'Unmute'}
+            title={media.prefs.micEnabled ? t('common.mute') : t('common.unmute')}
           >
             {media.prefs.micEnabled ? <Mic /> : <MicOff />}
           </button>
@@ -101,17 +103,17 @@ export function PreJoin({
             type="button"
             className={!media.prefs.cameraEnabled ? 'off' : ''}
             onClick={() => toggle('cameraEnabled')}
-            title={media.prefs.cameraEnabled ? 'Turn camera off' : 'Turn camera on'}
+            title={media.prefs.cameraEnabled ? t('common.cameraOff') : t('common.cameraOn')}
           >
             {media.prefs.cameraEnabled ? <Video /> : <VideoOff />}
           </button>
         </div>
-        {media.prefs.micEnabled && <span className="mic-live">Mic on</span>}
+        {media.prefs.micEnabled && <span className="mic-live">{t('prejoin.micOn')}</span>}
       </div>
       <div className="prejoin-copy">
-        <h1>{title}</h1>
-        <p>{subtitle}</p>
-        {media.permissionError && <p className="prejoin-warn">{media.permissionError}</p>}
+        <h1>{title ?? t('prejoin.title')}</h1>
+        <p>{subtitle ?? t('prejoin.subtitle')}</p>
+        {media.permissionError && <p className="prejoin-warn">{t(media.permissionError)}</p>}
         <DeviceSelects
           audioInputs={media.audioInputs}
           videoInputs={media.videoInputs}
@@ -123,10 +125,10 @@ export function PreJoin({
         />
         <div className="prejoin-actions">
           {!waiting && onJoin && (
-            <button type="button" className="button primary" onClick={onJoin}>{primaryLabel}</button>
+            <button type="button" className="button primary" onClick={onJoin}>{primaryLabel ?? t('prejoin.joinNow')}</button>
           )}
           <button type="button" className={waiting ? 'text-button' : 'button ghost'} onClick={onLeave}>
-            {waiting ? 'Cancel request' : 'Leave'}
+            {waiting ? t('prejoin.cancelRequest') : t('common.leave')}
           </button>
         </div>
       </div>

@@ -8,6 +8,7 @@ export default defineConfig({
   reporter: process.env.CI ? [['github'], ['html', { open: 'never' }]] : 'list',
   use: {
     baseURL: process.env.E2E_BASE_URL ?? 'http://localhost',
+    locale: 'en-US',
     trace: 'retain-on-failure',
     screenshot: 'only-on-failure',
     video: 'retain-on-failure',
@@ -21,5 +22,10 @@ export default defineConfig({
     },
   },
   outputDir: 'test-results',
-  projects: [{ name: 'chromium', use: { ...devices['Desktop Chrome'] } }],
+  webServer: process.env.E2E_FRONTEND_ONLY ? {
+    command: 'npm run dev -- --host 127.0.0.1 --port 4173',
+    url: 'http://127.0.0.1:4173',
+    reuseExistingServer: true,
+  } : undefined,
+  projects: [{ name: 'chromium', use: { ...devices['Desktop Chrome'], locale: 'en-US' } }],
 })

@@ -9,3 +9,5 @@ playwright-report/
 .idea/
 .vscode/
 .DS_Store
+# Google OAuth credentials (never commit)
+client_secret_*.apps.googleusercontent.com.json

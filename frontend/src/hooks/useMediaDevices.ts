@@ -60,20 +60,20 @@ export function useMediaDevices(meetingId: string) {
 
   const refresh = useCallback(async () => {
     if (!navigator.mediaDevices?.enumerateDevices) {
-      setPermissionError('Media devices are not available in this browser.')
+      setPermissionError('devices.unavailable')
       return
     }
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: true })
       stream.getTracks().forEach(t => t.stop())
       setPermissionError('')
-    } catch (e) {
+    } catch {
       try {
         const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
         stream.getTracks().forEach(t => t.stop())
-        setPermissionError('Camera permission was denied. You can still join with audio.')
+        setPermissionError('devices.cameraDenied')
       } catch {
-        setPermissionError(e instanceof Error ? e.message : 'Microphone/camera permission is required.')
+        setPermissionError('devices.permissionRequired')
       }
     }
     const devices = await navigator.mediaDevices.enumerateDevices()

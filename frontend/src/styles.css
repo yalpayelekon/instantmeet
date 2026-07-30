@@ -12,6 +12,12 @@ button { color:inherit }
 .brand { color:white; display:flex; align-items:center; gap:11px; text-decoration:none; font-weight:720; letter-spacing:-.03em; font-size:19px }
 .brand-mark { width:35px; height:35px; display:grid; place-items:center; border-radius:10px; background:#bef264; color:#151b0c; font-weight:900; font-style:italic; box-shadow:0 0 30px rgba(190,242,100,.12) }
 .nav-actions { display:flex; align-items:center; gap:18px }
+.sr-only { position:absolute!important; width:1px!important; height:1px!important; padding:0!important; margin:-1px!important; overflow:hidden!important; clip:rect(0,0,0,0)!important; white-space:nowrap!important; border:0!important }
+.language-switcher { display:flex; align-items:center; gap:6px; color:#a1a1aa; border:1px solid #27272a; background:#18181b; border-radius:999px; padding:6px 9px }
+.language-switcher svg { width:15px; height:15px }
+.language-switcher select { color:inherit; background:transparent; border:0; outline:0; cursor:pointer; font-size:12px }
+.language-switcher select option { background:#18181b; color:#f4f4f5 }
+.language-switcher.compact { padding:5px 8px }
 .github-link { display:flex; align-items:center; gap:7px; color:#a1a1aa; text-decoration:none; font-size:14px }
 .github-link:hover { color:white }
 .avatar-button { border:1px solid #27272a; background:#18181b; height:38px; border-radius:20px; display:flex; align-items:center; gap:8px; padding:3px 9px 3px 3px; cursor:pointer }
@@ -68,6 +74,7 @@ footer { border-top:1px solid #18181b; color:#52525b; font-size:12px; padding:24
 .text-button:hover { color:white }
 .meeting-shell { height:100vh; background:#09090b; position:relative; overflow:hidden; padding:68px 16px 92px }
 .meeting-header { position:absolute;inset:0 0 auto;height:60px;display:flex;align-items:center;padding:0 22px;border-bottom:1px solid #1f1f22 }
+.meeting-header-actions { display:flex; align-items:center; gap:8px }
 .brand.compact { font-size:16px }
 .brand.compact .brand-mark { width:29px;height:29px;border-radius:8px }
 .meeting-title { margin:auto;font-size:12px;color:#71717a;text-transform:uppercase;letter-spacing:.12em }
@@ -127,6 +134,7 @@ footer { border-top:1px solid #18181b; color:#52525b; font-size:12px; padding:24
 .connection-banner button { border:0; background:#bef264; color:#151b0c; border-radius:999px; padding:4px 10px; font-weight:650; cursor:pointer; font-size:12px }
 
 .prejoin-page { min-height:100vh; display:grid; place-items:center; padding:32px 16px; background:radial-gradient(circle at center,rgba(190,242,100,.06),transparent 35%),#09090b }
+.standalone-language { position:fixed; top:18px; right:20px; z-index:12 }
 .prejoin { display:grid; gap:28px; width:min(920px,100%); grid-template-columns:1.1fr .9fr; align-items:center }
 .prejoin.waiting-mode { grid-template-columns:1fr; max-width:420px; margin:28px auto 0; text-align:left }
 .prejoin.waiting-mode .prejoin-copy h1 { font-size:18px; margin:0 0 6px }
@@ -167,8 +175,8 @@ footer { border-top:1px solid #18181b; color:#52525b; font-size:12px; padding:24
 
 @media(max-width:760px){
   .shell{width:min(100% - 28px,1180px)} .nav{height:68px}.github-link{display:none}.hero{padding:78px 0 65px}.hero h1{font-size:54px}.hero-copy{font-size:16px}
+  .language-switcher svg{display:none}.language-switcher{padding-inline:6px}.nav-actions{gap:8px}
   .launch-panel,.created-box{flex-direction:column;align-items:stretch}.join-box input{width:100%}.join-box{width:100%}.promise{align-items:flex-start;gap:35px;flex-direction:column}.stats{gap:22px}footer span{display:none}
   .meeting-header .brand span:last-child{display:none}.meeting-title{margin-left:auto;margin-right:12px}.meeting-shell{padding-inline:8px}.video-grid{grid-template-columns:1fr}.controls{grid-template-columns:auto 1fr;padding:0 10px}.meeting-clock{display:none}.control-center{justify-content:flex-start}.side-panel{left:8px;right:8px;width:auto}.control-center button,.control-right button{width:40px;height:40px}
   .prejoin{grid-template-columns:1fr}.prejoin-actions{justify-content:center}
 }
-
