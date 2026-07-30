@@ -46,5 +46,24 @@ if [[ "${#GRAFANA_ADMIN_PASSWORD}" -lt 12 ]]; then
 fi
 echo "Validated .env.production (including Google OAuth)."
 docker compose --env-file .env.production -f docker-compose.prod.yml config --quiet
-docker compose --env-file .env.production -f docker-compose.prod.yml up -d --build --remove-orphans
+
+build_succeeded=false
+for attempt in 1 2 3; do
+  echo "Building production images (attempt ${attempt}/3)..."
+  if docker compose --env-file .env.production -f docker-compose.prod.yml build; then
+    build_succeeded=true
+    break
+  fi
+  if [[ "${attempt}" -lt 3 ]]; then
+    echo "Build failed; retrying in 5 seconds. Existing containers remain untouched."
+    sleep 5
+  fi
+done
+
+if [[ "${build_succeeded}" != "true" ]]; then
+  echo "Production build failed after 3 attempts. Existing containers were not replaced."
+  exit 1
+fi
+
+docker compose --env-file .env.production -f docker-compose.prod.yml up -d --no-build --remove-orphans
 docker compose --env-file .env.production -f docker-compose.prod.yml ps

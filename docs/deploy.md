@@ -60,6 +60,19 @@ sets the last two from `APP_DOMAIN` / `LIVEKIT_DOMAIN`).
 bash scripts/deploy.sh
 ```
 
+For later releases, the server repository can be updated and deployed without
+copying files manually:
+
+```bash
+cd /opt/instantmeet
+git pull --ff-only
+sudo bash scripts/deploy.sh
+```
+
+The deploy script builds all application images before replacing any running
+containers and retries transient dependency-download failures up to three
+times. If every build attempt fails, the currently running release stays up.
+
 This validates env, builds images, and starts Postgres, Redis, LiveKit, the Go
 API, the React frontend, Caddy, Prometheus, and Grafana. Caddy obtains and renews
 ACME certificates using `ACME_EMAIL`.
