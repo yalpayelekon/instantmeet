@@ -24,8 +24,8 @@ Try InstantMeet at [toplanti.online](https://toplanti.online).
 - Automatic in-memory teardown when the host ends or the last person leaves
 - Membership-gated, push-only WebSocket meeting events
 - Graceful Go server shutdown
-- Docker Compose stack with PostgreSQL, Redis, LiveKit, edge proxy, Go, and React
-  (Nginx locally; Caddy + ACME TLS in production)
+- Docker Compose stack with PostgreSQL, Redis, LiveKit, edge proxy, Go, React,
+  Prometheus, and Grafana (Nginx locally; Caddy + ACME TLS in production)
 
 PostgreSQL stores user accounts only. Meeting state, participants, and chat are
 kept in process memory and permanently discarded when a meeting ends. Redis is

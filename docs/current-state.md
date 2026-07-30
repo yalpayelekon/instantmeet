@@ -66,11 +66,13 @@ Anything outside that list is explicitly out of product scope unless called out 
 
 ### Ops / packaging
 
-- Local Docker Compose: Postgres, Redis, LiveKit, Nginx, Go API, React
-- Production Compose: Caddy TLS, embedded LiveKit TURN, hardened env
+- Local Docker Compose: Postgres, Redis, LiveKit, Nginx, Go API, React, Prometheus, Grafana
+- Production Compose: Caddy TLS, embedded LiveKit TURN, hardened env, Prometheus + Grafana (localhost-only)
 - Distroless backend image; Nginx-served frontend
-- `/healthz` (public) and `/metrics` (API-container only; not edged)
+- `/healthz` (public); `/metrics` scraped by Prometheus on the Docker network (not edged)
+- Prometheus retention capped at 15d / 5GB; Grafana dashboard **InstantMeet Overview**
 - Structured request logs with status and latency
+- Low-cardinality HTTP + meeting/WebSocket gauges for ops dashboards
 - Graceful Go shutdown
 - Backend unit tests
 - Frontend unit tests for auth, API, and meeting WebSocket behavior

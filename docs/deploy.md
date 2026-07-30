@@ -61,8 +61,8 @@ bash scripts/deploy.sh
 ```
 
 This validates env, builds images, and starts Postgres, Redis, LiveKit, the Go
-API, the React frontend, and Caddy. Caddy obtains and renews ACME certificates
-using `ACME_EMAIL`.
+API, the React frontend, Caddy, Prometheus, and Grafana. Caddy obtains and renews
+ACME certificates using `ACME_EMAIL`.
 
 ### 6. Automated smoke (API surface)
 
@@ -91,10 +91,29 @@ if OAuth is still empty on an older deploy).
   Restrictive NATs still need a real two-network media check after deploy.
 - **WebSockets:** Caddy proxies `/ws` to the API.
 - **Health:** `/healthz` (JSON) is proxied publicly for uptime checks.
-- **Metrics:** `/metrics` stays on the API container only (Docker network /
-  `docker compose exec backend wget -qO- http://127.0.0.1:8080/metrics`). It is
-  not exposed through Caddy or Nginx.
+- **Metrics + Grafana:** Prometheus scrapes the API `/metrics` on the Docker
+  network (not edged via Caddy). Retention is capped at **15 days / 5 GB**.
+  Grafana listens on `127.0.0.1:3000` only — open an SSH tunnel, then browse
+  `http://127.0.0.1:3000` (admin / `GRAFANA_ADMIN_PASSWORD`). Provisioned
+  dashboard: **InstantMeet Overview**.
 - **Dev login:** Forced off (`DEV_AUTH_ENABLED=false`).
+
+## Monitoring access (production)
+
+```sh
+ssh -L 3000:127.0.0.1:3000 user@your-host
+# open http://127.0.0.1:3000
+```
+
+Prometheus UI is not published on the host. Inspect raw metrics with:
+
+```sh
+docker compose --env-file .env.production -f docker-compose.prod.yml \
+  exec backend wget -qO- http://127.0.0.1:8080/metrics
+```
+
+If you already have a `.env.production` from before monitoring landed, add
+`GRAFANA_ADMIN_PASSWORD` (≥12 chars) before the next `deploy.sh`.
 
 ## Local stack (optional)
 
@@ -104,8 +123,10 @@ cp .env.example .env
 docker compose up --build -d
 ```
 
-Services: Nginx, Go API, PostgreSQL, Redis, LiveKit, frontend. Prefer this for
-development; use the production path above for any public host.
+Services: Nginx, Go API, PostgreSQL, Redis, LiveKit, frontend, Prometheus,
+Grafana (`http://127.0.0.1:3000`, password from `GRAFANA_ADMIN_PASSWORD` or
+`admin`). Prefer this for development; use the production path above for any
+public host.
 
 ## Secrets rotation
 
@@ -115,6 +136,7 @@ Rotate before any public exposure (or on compromise):
 - LiveKit API key/secret
 - Google OAuth client secret
 - `POSTGRES_PASSWORD` / `DATABASE_URL`
+- `GRAFANA_ADMIN_PASSWORD`
 
 After changing LiveKit keys, recreate the LiveKit container so `LIVEKIT_KEYS`
 matches the API.

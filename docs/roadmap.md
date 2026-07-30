@@ -50,10 +50,11 @@ credentials filled by the operator.
 | Example / prod TLS reverse-proxy (Caddy) documented | Done |
 | Documented TURN (LiveKit embedded in prod Compose) | Done |
 | Structured logging + request metrics | Done |
+| Prometheus + Grafana (15d/5GB retention, localhost Grafana) | Done |
 | LiveKit room cleanup on meeting end/leave | Done |
 | Remove unused meeting `Secret` | Done |
 | Secret rotation / production env template + deploy validation | Done |
-| `/healthz` edged publicly; `/metrics` internal-only; prod smoke script | Done |
+| `/healthz` edged publicly; `/metrics` scraped internally; prod smoke script | Done |
 
 **Exit criteria:** A stranger can follow [deploy.md](deploy.md) and run a single-node public instance safely once Google OAuth is configured.
 

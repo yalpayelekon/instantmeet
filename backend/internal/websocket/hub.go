@@ -94,6 +94,17 @@ func (h *Hub) checkOrigin(r *http.Request) bool {
 	return got.Scheme == allowed.Scheme && got.Host == allowed.Host
 }
 
+// ConnectionCount returns open WebSocket clients across all rooms.
+func (h *Hub) ConnectionCount() int {
+	h.mu.RLock()
+	defer h.mu.RUnlock()
+	n := 0
+	for _, room := range h.rooms {
+		n += len(room)
+	}
+	return n
+}
+
 func (h *Hub) Broadcast(meetingID string, event Event) {
 	data, err := json.Marshal(event)
 	if err != nil {

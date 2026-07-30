@@ -70,6 +70,18 @@ func (s *Store) Delete(id string) {
 	}
 }
 
+// Stats returns low-cardinality gauges for Prometheus (no per-meeting labels).
+func (s *Store) Stats() (meetings, participants, waiting int) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	meetings = len(s.meetings)
+	for _, m := range s.meetings {
+		participants += len(m.Participants)
+		waiting += len(m.WaitingRoom)
+	}
+	return
+}
+
 func friendlyID() string {
 	const chars = "abcdefghjkmnpqrstuvwxyz23456789"
 	b := make([]byte, 9)

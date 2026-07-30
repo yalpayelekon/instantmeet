@@ -26,3 +26,20 @@ func TestCreateAndDelete(t *testing.T) {
 		t.Fatal("meeting was not deleted")
 	}
 }
+
+func TestStats(t *testing.T) {
+	s := NewStore()
+	m := s.Create(models.User{ID: "host"})
+	_, err := s.Update(m.ID, func(meeting *models.Meeting) error {
+		meeting.Participants["host"] = &models.Participant{UserID: "host", DisplayName: "Host"}
+		meeting.WaitingRoom["guest"] = &models.WaitingParticipant{Participant: models.Participant{UserID: "guest", DisplayName: "Guest"}}
+		return nil
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	meetings, participants, waiting := s.Stats()
+	if meetings != 1 || participants != 1 || waiting != 1 {
+		t.Fatalf("Stats() = %d,%d,%d", meetings, participants, waiting)
+	}
+}

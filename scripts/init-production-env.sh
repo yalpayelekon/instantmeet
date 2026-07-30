@@ -25,6 +25,7 @@ POSTGRES_PASSWORD=$(openssl rand -hex 24)
 JWT_SECRET=$(openssl rand -hex 32)
 LIVEKIT_API_KEY=$(openssl rand -hex 12)
 LIVEKIT_API_SECRET=$(openssl rand -hex 32)
+GRAFANA_ADMIN_PASSWORD=$(openssl rand -hex 24)
 
 # Required before deploy.sh will succeed.
 # Google Cloud Console → APIs & Services → Credentials → OAuth 2.0 Client ID (Web).

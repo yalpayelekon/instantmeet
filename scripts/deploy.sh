@@ -31,6 +31,7 @@ require_nonempty POSTGRES_PASSWORD
 require_nonempty JWT_SECRET
 require_nonempty LIVEKIT_API_KEY
 require_nonempty LIVEKIT_API_SECRET
+require_nonempty GRAFANA_ADMIN_PASSWORD
 require_nonempty GOOGLE_CLIENT_ID
 require_nonempty GOOGLE_CLIENT_SECRET
 
@@ -39,6 +40,10 @@ if [[ "${#JWT_SECRET}" -lt 32 ]]; then
   exit 1
 fi
 
+if [[ "${#GRAFANA_ADMIN_PASSWORD}" -lt 12 ]]; then
+  echo "GRAFANA_ADMIN_PASSWORD must be at least 12 characters."
+  exit 1
+fi
 echo "Validated .env.production (including Google OAuth)."
 docker compose --env-file .env.production -f docker-compose.prod.yml config --quiet
 docker compose --env-file .env.production -f docker-compose.prod.yml up -d --build --remove-orphans
