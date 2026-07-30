@@ -20,12 +20,13 @@ button { color:inherit }
 .language-switcher.compact { padding:5px 8px }
 .github-link { display:flex; align-items:center; gap:7px; color:#a1a1aa; text-decoration:none; font-size:14px }
 .github-link:hover { color:white }
-.avatar-button { border:1px solid #27272a; background:#18181b; height:38px; border-radius:20px; display:flex; align-items:center; gap:8px; padding:3px 9px 3px 3px; cursor:pointer }
-.avatar-button img { width:30px;height:30px;border-radius:50% }
+.sign-out-button { width:34px;height:34px;display:grid;place-items:center;border:0;border-radius:9px;background:transparent;color:#a1a1aa;cursor:pointer }
+.sign-out-button:hover { background:#18181b;color:white }
+.sign-out-button:focus-visible { outline:2px solid #bef264;outline-offset:2px }
 .hero { padding:105px 0 100px; position:relative }
 .hero:after { content:""; position:absolute; right:-190px; top:30px; width:530px; height:530px; border:1px solid rgba(190,242,100,.08); border-radius:50%; box-shadow:0 0 0 75px rgba(190,242,100,.015),0 0 0 150px rgba(190,242,100,.01); pointer-events:none }
 .eyebrow { display:inline-flex; align-items:center; gap:7px; color:#bef264; background:#bef2640d; border:1px solid #bef26424; border-radius:20px; padding:7px 11px; text-transform:uppercase; font-size:11px; font-weight:750; letter-spacing:.13em }
-.hero h1 { font-size:clamp(55px,7.4vw,102px); line-height:.94; letter-spacing:-.066em; max-width:970px; margin:28px 0 30px; font-weight:680 }
+.hero h1 { font-size:clamp(55px,7.4vw,102px); line-height:1.06; letter-spacing:-.066em; max-width:970px; margin:28px 0 30px; font-weight:680 }
 .hero h1 span { color:#71717a }
 .hero-copy { color:#a1a1aa; font-size:19px; line-height:1.65; max-width:610px; margin:0 0 40px }
 .button { display:inline-flex; align-items:center; justify-content:center; gap:9px; border-radius:11px; padding:14px 19px; border:0; cursor:pointer; text-decoration:none; font-weight:680; font-size:15px }

@@ -39,9 +39,8 @@ export function HomePage({ user, onLogout }: { user: User|null; onLogout: () => 
       <div className="nav-actions">
         <a className="github-link" href="https://github.com/yalpayelekon/instantmeet" target="_blank" rel="noreferrer"><Github size={18}/> {t('home.openSource')}</a>
         <LanguageSwitcher compact />
-        {user && <button className="avatar-button" onClick={onLogout} title={t('home.signOut')}>
-          {user.avatar ? <img src={user.avatar} alt="" /> : user.displayName.slice(0, 1)}
-          <LogOut size={15}/>
+        {user && <button className="sign-out-button" onClick={onLogout} title={t('home.signOut')} aria-label={t('home.signOut')}>
+          <LogOut size={17}/>
         </button>}
       </div>
     </nav>
