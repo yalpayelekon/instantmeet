@@ -8,6 +8,9 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"strconv"
+	"strings"
+	"sync/atomic"
 	"syscall"
 	"time"
 
@@ -22,6 +25,12 @@ import (
 	"github.com/instantmeet/instantmeet/backend/internal/services"
 	ws "github.com/instantmeet/instantmeet/backend/internal/websocket"
 )
+
+type metrics struct {
+	requests atomic.Int64
+	errors   atomic.Int64
+	latency  atomic.Int64 // nanoseconds total for average
+}
 
 func main() {
 	cfg, err := config.Load()
@@ -43,14 +52,17 @@ func main() {
 	store := meeting.NewStore()
 	hub := ws.NewHub(authService, store, cfg.FrontendURL)
 	handler := api.New(store, hub, services.NewLiveKit(cfg))
+	m := &metrics{}
 
 	r := chi.NewRouter()
 	r.Use(middleware.RequestID, middleware.RealIP, middleware.Recoverer)
-	r.Use(requestLogger)
+	r.Use(requestLogger(m))
 	r.Use(cors.Handler(cors.Options{AllowedOrigins: []string{cfg.FrontendURL}, AllowedMethods: []string{"GET", "POST", "OPTIONS"}, AllowedHeaders: []string{"Accept", "Authorization", "Content-Type"}, AllowCredentials: true, MaxAge: 300}))
 	r.Get("/healthz", func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
 		_ = json.NewEncoder(w).Encode(map[string]string{"status": "ok"})
 	})
+	r.Get("/metrics", m.serve)
 	r.Get("/api/login/google", authService.Login)
 	r.Post("/api/login/google", authService.Login)
 	r.Get("/api/auth/google/callback", authService.Callback)
@@ -78,10 +90,62 @@ func main() {
 	slog.Info("server stopped")
 }
 
-func requestLogger(next http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		start := time.Now()
-		next.ServeHTTP(w, r)
-		slog.Info("request", "method", r.Method, "path", r.URL.Path, "duration", time.Since(start).String(), "request_id", middleware.GetReqID(r.Context()))
-	})
+func requestLogger(m *metrics) func(http.Handler) http.Handler {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			if r.URL.Path == "/healthz" || r.URL.Path == "/metrics" {
+				next.ServeHTTP(w, r)
+				return
+			}
+			start := time.Now()
+			ww := middleware.NewWrapResponseWriter(w, r.ProtoMajor)
+			next.ServeHTTP(ww, r)
+			duration := time.Since(start)
+			status := ww.Status()
+			if status == 0 {
+				status = http.StatusOK
+			}
+			m.requests.Add(1)
+			m.latency.Add(duration.Nanoseconds())
+			if status >= 500 {
+				m.errors.Add(1)
+			}
+			slog.Info("request",
+				"method", r.Method,
+				"path", r.URL.Path,
+				"status", status,
+				"duration_ms", duration.Milliseconds(),
+				"bytes", ww.BytesWritten(),
+				"request_id", middleware.GetReqID(r.Context()),
+			)
+		})
+	}
+}
+
+func (m *metrics) serve(w http.ResponseWriter, _ *http.Request) {
+	total := m.requests.Load()
+	errs := m.errors.Load()
+	latency := m.latency.Load()
+	var avgMs float64
+	if total > 0 {
+		avgMs = float64(latency) / float64(total) / 1e6
+	}
+	w.Header().Set("Content-Type", "text/plain; version=0.0.4")
+	var b strings.Builder
+	b.WriteString("# HELP instantmeet_http_requests_total Total HTTP requests excluding health and metrics.\n")
+	b.WriteString("# TYPE instantmeet_http_requests_total counter\n")
+	b.WriteString("instantmeet_http_requests_total ")
+	b.WriteString(strconv.FormatInt(total, 10))
+	b.WriteString("\n")
+	b.WriteString("# HELP instantmeet_http_errors_total HTTP responses with status >= 500.\n")
+	b.WriteString("# TYPE instantmeet_http_errors_total counter\n")
+	b.WriteString("instantmeet_http_errors_total ")
+	b.WriteString(strconv.FormatInt(errs, 10))
+	b.WriteString("\n")
+	b.WriteString("# HELP instantmeet_http_request_duration_avg_ms Average request duration in milliseconds.\n")
+	b.WriteString("# TYPE instantmeet_http_request_duration_avg_ms gauge\n")
+	b.WriteString("instantmeet_http_request_duration_avg_ms ")
+	b.WriteString(strconv.FormatFloat(avgMs, 'f', 3, 64))
+	b.WriteString("\n")
+	_, _ = w.Write([]byte(b.String()))
 }

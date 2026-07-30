@@ -2,11 +2,13 @@
 
 ## Request path
 
-Browser → Nginx → React static app or Go API → in-memory meeting store
+Browser → edge proxy (Caddy in production, Nginx locally) → React static app or
+Go API → in-memory meeting store
 
 Live media bypasses the API and travels through LiveKit over WebRTC. The API
-issues short-lived room grants only after admission. WebSockets distribute
-waiting-room, participant, chat, media-state, and termination events.
+issues short-lived room grants only after admission and best-effort deletes the
+LiveKit room when a meeting ends. WebSockets distribute waiting-room,
+participant, chat, media-state, and termination events.
 
 WebSockets are **server → client only**. The browser authenticates with the
 session cookie, must already be in the meeting's participant list or waiting
@@ -29,7 +31,9 @@ The room is destroyed when:
 - the host invokes `POST /api/meetings/{id}/end`; or
 - the last active participant invokes `leave`.
 
-LiveKit also has short empty/departure timeouts as a second cleanup layer.
+In both cases the API asynchronously best-effort deletes the LiveKit room
+(`DeleteRoom` with a background timeout and retry). LiveKit also has short
+empty/departure timeouts as a second cleanup layer.
 
 ## Scaling boundary
 

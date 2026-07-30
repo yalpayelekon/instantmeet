@@ -46,7 +46,6 @@ const (
 
 type Meeting struct {
 	ID           string                         `json:"id"`
-	Secret       string                         `json:"-"`
 	HostID       string                         `json:"hostId"`
 	CreatedAt    time.Time                      `json:"createdAt"`
 	Participants map[string]*Participant        `json:"participants"`

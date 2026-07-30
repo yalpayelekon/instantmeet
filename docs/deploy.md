@@ -1,71 +1,123 @@
 # Deploy checklist
 
-Operator guide for a **single-node** InstantMeet deployment. The MVP keeps
-meeting state in one Go process; do not run multiple API replicas until Redis
-backing lands (see [architecture.md](architecture.md) and [roadmap.md](roadmap.md)).
+Operator guide for a **single-node** InstantMeet deployment. Meeting state lives
+in one Go process; do not run multiple API replicas until Redis backing lands
+(see [architecture.md](architecture.md) and [roadmap.md](roadmap.md)).
 
-## Before you expose the stack
+There are two Compose stacks:
 
-1. Copy `.env.example` to `.env` and fill real values.
-2. Set `JWT_SECRET` to a random string of at least 32 characters.
-3. Configure Google OAuth (`GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`) and add the
-   production callback URL (`https://<your-host>/api/auth/google/callback`).
-4. Replace example LiveKit API key/secret (`LIVEKIT_API_KEY`, `LIVEKIT_API_SECRET`).
-5. Set `FRONTEND_URL` to the public site origin (scheme + host, no trailing slash).
-6. Set `LIVEKIT_PUBLIC_URL` to the **browser-reachable** LiveKit WebSocket URL
-   (`wss://…`). Local Docker defaults are not valid on the public internet.
-7. Leave `DEV_AUTH_ENABLED=false` on any shared or public host.
-8. Terminate **TLS** at Nginx or a load balancer. Camera/microphone access
-   requires HTTPS outside `localhost`.
-9. Provide a **TURN** server for restrictive NATs (corporate firewalls, some
-   mobile carriers). Without TURN, some guests will fail to establish WebRTC.
-10. Confirm `/healthz` returns `{"status":"ok"}` behind the reverse proxy.
+| Stack | Compose file | Edge | Use |
+|-------|--------------|------|-----|
+| Local / CI | `docker-compose.yml` | Nginx (`docker/nginx.conf`) | Dev demos, Playwright |
+| Production | `docker-compose.prod.yml` | Caddy (`docker/Caddyfile`) | Public host (TLS + TURN) |
 
-## Suggested Compose launch
+## Production path (recommended)
+
+### 1. DNS
+
+Point these A records at the server IPv4 address:
+
+- `toplanti.online` (or your `APP_DOMAIN`)
+- `www.<APP_DOMAIN>`
+- `livekit.<APP_DOMAIN>` (must match `LIVEKIT_DOMAIN`)
+
+### 2. Bootstrap the host
+
+On Ubuntu:
 
 ```sh
+sudo bash scripts/bootstrap-ubuntu.sh
+```
+
+Opens UFW for HTTPS (`80`/`443`), LiveKit ICE/TCP (`7881`), TURN (`3478/udp`),
+and the WebRTC UDP range (`40000–40100/udp`).
+
+### 3. Create `.env.production`
+
+```sh
+bash scripts/init-production-env.sh you@example.com
+```
+
+Or copy [`.env.production.example`](../.env.production.example). The init script
+fills random secrets and leaves Google empty on purpose.
+
+### 4. Configure Google OAuth (required)
+
+1. Google Cloud Console → **APIs & Services** → **Credentials**.
+2. Create an **OAuth 2.0 Client ID** of type **Web application**.
+3. Authorized JavaScript origins: `https://<APP_DOMAIN>`
+4. Authorized redirect URI: `https://<APP_DOMAIN>/api/auth/google/callback`
+5. Set `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET` in `.env.production`.
+
+`scripts/deploy.sh` and the production API refuse to start without these values.
+`APP_ENV=production` also requires a ≥32-character `JWT_SECRET`, non-default
+LiveKit keys, HTTPS `FRONTEND_URL`, and `wss://` `LIVEKIT_PUBLIC_URL` (Compose
+sets the last two from `APP_DOMAIN` / `LIVEKIT_DOMAIN`).
+
+### 5. Deploy
+
+```sh
+bash scripts/deploy.sh
+```
+
+This validates env, builds images, and starts Postgres, Redis, LiveKit, the Go
+API, the React frontend, and Caddy. Caddy obtains and renews ACME certificates
+using `ACME_EMAIL`.
+
+### 6. Automated smoke (API surface)
+
+```sh
+bash scripts/smoke-production.sh
+# or: bash scripts/smoke-production.sh https://toplanti.online
+```
+
+Checks `/healthz` and that Google login redirects (or fails clearly
+if OAuth is still empty on an older deploy).
+
+### 7. Manual two-user smoke
+
+1. Open `https://<APP_DOMAIN>` over HTTPS.
+2. Sign in with Google.
+3. Create a meeting, pass pre-join device check, enter the room.
+4. Join from a second browser/network; admit from the host people panel.
+5. Send chat, toggle mic/camera, open Settings and switch devices.
+6. End the meeting; confirm both clients return home and a new join fails for
+   the old room id.
+
+## What production Compose already provides
+
+- **TLS:** Caddy terminates HTTPS for the app and LiveKit hostnames.
+- **TURN:** LiveKit embedded TURN on UDP `3478` (`docker/livekit.prod.yaml`).
+  Restrictive NATs still need a real two-network media check after deploy.
+- **WebSockets:** Caddy proxies `/ws` to the API.
+- **Health:** `/healthz` (JSON) is proxied publicly for uptime checks.
+- **Metrics:** `/metrics` stays on the API container only (Docker network /
+  `docker compose exec backend wget -qO- http://127.0.0.1:8080/metrics`). It is
+  not exposed through Caddy or Nginx.
+- **Dev login:** Forced off (`DEV_AUTH_ENABLED=false`).
+
+## Local stack (optional)
+
+```sh
+cp .env.example .env
+# fill Google or set DEV_AUTH_ENABLED=true for local UI only
 docker compose up --build -d
 ```
 
-Services: Nginx (static + proxy), Go API, PostgreSQL (users only), Redis
-(unused by the app today), LiveKit.
-
-## TLS
-
-- Prefer terminating TLS at Nginx or a cloud load balancer in front of Compose.
-- Forward `X-Forwarded-Proto` / `X-Forwarded-For` if your proxy strips them so
-  cookies and redirects stay correct.
-- WebSocket upgrade must pass through for `/ws` (see `docker/nginx.conf`).
-
-## LiveKit and media
-
-- Browsers connect directly to LiveKit using `LIVEKIT_PUBLIC_URL`.
-- The API only mints short-lived join tokens after admission.
-- Size LiveKit CPU/bandwidth for your expected concurrent publishers (up to the
-  100-person admission cap).
-- Empty-room / departure timeouts on LiveKit are a second cleanup layer after
-  API teardown.
-
-## TURN (recommended for public deploys)
-
-Run coturn (or a managed TURN service) and point LiveKit at it via LiveKit’s
-ICE/TURN configuration. Without TURN, WebRTC often fails when both peers are
-behind symmetric NAT.
-
-Document the TURN host, ports (UDP/TCP 3478, TLS 5349 as applicable), and
-credentials in your private ops notes—do not commit secrets.
+Services: Nginx, Go API, PostgreSQL, Redis, LiveKit, frontend. Prefer this for
+development; use the production path above for any public host.
 
 ## Secrets rotation
 
-Rotate before any public exposure:
+Rotate before any public exposure (or on compromise):
 
-- `JWT_SECRET`
+- `JWT_SECRET` (invalidates all sessions)
 - LiveKit API key/secret
 - Google OAuth client secret
-- Postgres password in `DATABASE_URL`
+- `POSTGRES_PASSWORD` / `DATABASE_URL`
 
-After rotating JWT, all existing sessions are invalidated (users must sign in
-again).
+After changing LiveKit keys, recreate the LiveKit container so `LIVEKIT_KEYS`
+matches the API.
 
 ## Single-node limit
 
@@ -73,16 +125,12 @@ Run **one** backend instance for this MVP. Horizontal API scaling requires:
 
 - Redis-backed meeting store
 - Distributed WebSocket pub/sub
-- Idempotent LiveKit room cleanup
+- Idempotent LiveKit room cleanup (DeleteRoom is already best-effort)
 
-Redis is already in Compose for that future path and is unused by the app today.
+Redis is in Compose for that future path and is unused by the app today.
 
-## Smoke test after deploy
+## LiveKit cleanup
 
-1. Open `https://<host>` over HTTPS.
-2. Sign in with Google.
-3. Create a meeting, pass pre-join device check, enter the room.
-4. Join from a second browser/network; admit from the host people panel.
-5. Send chat, toggle mic/camera, open Settings and switch devices.
-6. End the meeting; confirm both clients return home and a new join fails for
-   the old room id.
+On host `end` or last-participant `leave`, the API best-effort deletes the
+LiveKit room (`instantmeet-<id>`). LiveKit `empty_timeout` /
+`departure_timeout` remain a second cleanup layer if the admin call fails.

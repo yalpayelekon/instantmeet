@@ -1,8 +1,10 @@
 package api
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
+	"log/slog"
 	"net/http"
 	"strings"
 	"time"
@@ -15,10 +17,11 @@ import (
 	ws "github.com/instantmeet/instantmeet/backend/internal/websocket"
 )
 
-// MediaTokens mints LiveKit join grants after admission.
+// MediaTokens mints LiveKit join grants after admission and cleans up SFU rooms.
 type MediaTokens interface {
 	Token(room string, user models.User, canPublish bool) (string, error)
 	PublicURL() string
+	DeleteRoom(ctx context.Context, room string) error
 }
 
 type API struct {
@@ -146,9 +149,11 @@ func (a *API) leave(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if destroy {
+		room := m.LiveKitRoom
 		a.meetings.Delete(id)
 		a.hub.Broadcast(id, ws.Event{Type: "meeting.ended"})
 		w.WriteHeader(204)
+		a.deleteLiveKitRoom(room)
 		return
 	}
 	a.hub.Broadcast(id, ws.Event{Type: "meeting.updated", Payload: publicMeeting(m, user.ID)})
@@ -261,11 +266,13 @@ func (a *API) media(w http.ResponseWriter, r *http.Request) {
 func (a *API) end(w http.ResponseWriter, r *http.Request) {
 	host := auth.User(r)
 	id := chi.URLParam(r, "id")
+	var room string
 	_, err := a.meetings.Update(id, func(m *models.Meeting) error {
 		if m.HostID != host.ID {
 			return errors.New("host only")
 		}
 		m.State = models.MeetingEnding
+		room = m.LiveKitRoom
 		return nil
 	})
 	if err != nil {
@@ -275,6 +282,18 @@ func (a *API) end(w http.ResponseWriter, r *http.Request) {
 	a.hub.Broadcast(id, ws.Event{Type: "meeting.ended"})
 	a.meetings.Delete(id)
 	w.WriteHeader(204)
+	a.deleteLiveKitRoom(room)
+}
+func (a *API) deleteLiveKitRoom(room string) {
+	if room == "" {
+		return
+	}
+	go func() {
+		// LiveKit.DeleteRoom ignores this parent and applies its own timeout/retry.
+		if err := a.livekit.DeleteRoom(context.Background(), room); err != nil {
+			slog.Error("livekit room cleanup failed after retries", "room", room, "error", err)
+		}
+	}()
 }
 func participant(u models.User, host bool) *models.Participant {
 	return &models.Participant{UserID: u.ID, DisplayName: u.DisplayName, Avatar: u.Avatar, IsHost: host, JoinedAt: time.Now().UTC(), MicEnabled: true, CameraEnabled: true}

@@ -61,7 +61,7 @@ export function HomePage({ user, onLogout }: { user: User|null; onLogout: () => 
     </section>
 
     <section className="promise shell">
-      <div><ShieldCheck/><span><strong>Ephemeral by design</strong>Room, chat, and participant state vanish when the meeting ends.</span></div>
+      <div><ShieldCheck/><span><strong>Simple by design</strong>Room, chat, and participant state vanish when the meeting ends.</span></div>
       <div className="stats"><span><strong>100</strong> people</span><span><strong>0</strong> minute limit</span><span><strong>0</strong> recordings</span></div>
     </section>
     <footer className="shell">Built in the open for conversations that belong to you.<span>WebRTC · LiveKit · Go</span></footer>

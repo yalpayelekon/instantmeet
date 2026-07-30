@@ -1,6 +1,6 @@
 # Roadmap
 
-Prioritized plan from the [current state](current-state.md) assessment (2026-07-29).
+Prioritized plan from the [current state](current-state.md) assessment (2026-07-30).
 Phases are sequential where noted; items inside a phase can often ship in parallel.
 
 Out of scope unless the product thesis changes: meeting history, recordings,
@@ -39,18 +39,27 @@ Finished 2026-07-29. Frontend unit tests, a two-user browser smoke test, complet
 
 ---
 
-## Phase 2 — Self-host production hardening
+## Phase 2 — Self-host production hardening ✅
 
-| Item | Why | Effort |
-|------|-----|--------|
-| Example Nginx TLS / reverse-proxy snippets | HTTPS is required for WebRTC off-localhost | S |
-| Documented TURN (coturn) Compose profile | Restrictive NATs otherwise fail | M |
-| Structured logging + request metrics (at least latency/error rates) | Operable in production | M |
-| LiveKit room cleanup verification on meeting end | Avoid orphaned SFU rooms | S |
-| Use or delete unused meeting `Secret` | Either private invite tokens or remove dead field | S–M |
-| Secret rotation / `.env` production template review | Default LiveKit/JWT values are unsafe | S |
+Finished 2026-07-30. Production Compose path, OAuth/secret gates, LiveKit cleanup,
+metrics, and aligned deploy docs are in the repo. Live host still needs Google
+credentials filled by the operator.
 
-**Exit criteria:** A stranger can follow deploy docs and run a single-node public instance safely.
+| Item | Status |
+|------|--------|
+| Example / prod TLS reverse-proxy (Caddy) documented | Done |
+| Documented TURN (LiveKit embedded in prod Compose) | Done |
+| Structured logging + request metrics | Done |
+| LiveKit room cleanup on meeting end/leave | Done |
+| Remove unused meeting `Secret` | Done |
+| Secret rotation / production env template + deploy validation | Done |
+| `/healthz` edged publicly; `/metrics` internal-only; prod smoke script | Done |
+
+**Exit criteria:** A stranger can follow [deploy.md](deploy.md) and run a single-node public instance safely once Google OAuth is configured.
+
+**Operator follow-up on toplanti.online:** set `GOOGLE_CLIENT_ID` /
+`GOOGLE_CLIENT_SECRET`, redeploy, run `scripts/smoke-production.sh`, then the
+manual two-user checklist.
 
 ---
 
@@ -62,10 +71,10 @@ Only needed if you want multiple backend replicas or HA.
 |------|-----|--------|
 | Redis-backed meeting store | Shared presence across instances | L |
 | Redis pub/sub (or equivalent) for WebSocket fan-out | Cross-node event delivery | L |
-| Idempotent LiveKit room delete | Safe under concurrent end/leave | M |
+| Idempotent LiveKit room delete under concurrent end/leave | Already best-effort; harden for multi-writer | M |
 | Sticky sessions *or* fully shared hub design | Avoid split-brain membership | M |
 
-**Exit criteria:** Two API replicas behind Nginx serve the same meeting correctly.
+**Exit criteria:** Two API replicas behind the edge proxy serve the same meeting correctly.
 
 ---
 
@@ -74,11 +83,11 @@ Only needed if you want multiple backend replicas or HA.
 Still compatible with “ephemeral,” but not required for the thesis:
 
 | Item | Notes |
-|------|--------|
+|------|-------|
 | Additional IdPs (OIDC/SAML, GitHub, email magic link) | Better for enterprise self-host |
 | Raise hand / reactions | Low-persistence UX; keep ephemeral |
 | Host lock meeting / lobby messages | Moderated rooms without history |
-| Password or secret-link join | Uses the unused `Secret` concept |
+| Password or secret-link join | New invite-token design (old unused Secret removed) |
 | Mobile-friendly layout pass | Responsive polish, not native apps |
 | Captions via LiveKit / browser APIs | Accessibility |
 
@@ -89,10 +98,10 @@ Defer indefinitely unless strategy changes: calendar sync, CRM, billing, recordi
 Suggested sequencing:
 
 ```text
-Phase 0 (polish) ✅ ──► Phase 1 (tests/CI) ✅ ──► Phase 2 (deploy hardening)
-                                              │
-                                              └──► Phase 3 (Redis HA) if multi-instance needed
-                                              └──► Phase 4 features as demand appears
+Phase 0 ✅ ──► Phase 1 ✅ ──► Phase 2 ✅ ──► operator Google OAuth on live host
+                                         │
+                                         └──► Phase 3 (Redis HA) if multi-instance needed
+                                         └──► Phase 4 features as demand appears
 ```
 
 ## Progress tracking

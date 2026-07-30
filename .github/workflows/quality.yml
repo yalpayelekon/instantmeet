@@ -62,7 +62,8 @@ jobs:
         shell: bash
         run: |
           for attempt in {1..30}; do
-            if curl --fail --silent http://localhost/healthz >/dev/null; then
+            body="$(curl --fail --silent http://localhost/healthz || true)"
+            if [[ "${body}" == *'"status":"ok"'* ]] || [[ "${body}" == *'"status": "ok"'* ]]; then
               exit 0
             fi
             sleep 2

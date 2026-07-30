@@ -2,7 +2,6 @@ package meeting
 
 import (
 	"crypto/rand"
-	"encoding/base64"
 	"errors"
 	"sync"
 	"time"
@@ -24,7 +23,7 @@ func (s *Store) Create(host models.User) *models.Meeting {
 	defer s.mu.Unlock()
 	id := friendlyID()
 	m := &models.Meeting{
-		ID: id, Secret: token(24), HostID: host.ID, CreatedAt: time.Now().UTC(),
+		ID: id, HostID: host.ID, CreatedAt: time.Now().UTC(),
 		Participants: map[string]*models.Participant{}, WaitingRoom: map[string]*models.WaitingParticipant{},
 		LiveKitRoom: "instantmeet-" + id, Chat: []models.ChatMessage{}, State: models.MeetingWaiting,
 	}
@@ -79,12 +78,6 @@ func friendlyID() string {
 		b[i] = chars[int(b[i])%len(chars)]
 	}
 	return string(b[0:3]) + "-" + string(b[3:6]) + "-" + string(b[6:9])
-}
-
-func token(n int) string {
-	b := make([]byte, n)
-	_, _ = rand.Read(b)
-	return base64.RawURLEncoding.EncodeToString(b)
 }
 
 func clone(m *models.Meeting) *models.Meeting {

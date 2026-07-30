@@ -17,7 +17,8 @@ uploads, subscriptions, or artificial time limit.
 - Automatic in-memory teardown when the host ends or the last person leaves
 - Membership-gated, push-only WebSocket meeting events
 - Graceful Go server shutdown
-- Docker Compose stack with PostgreSQL, Redis, LiveKit, Nginx, Go, and React
+- Docker Compose stack with PostgreSQL, Redis, LiveKit, edge proxy, Go, and React
+  (Nginx locally; Caddy + ACME TLS in production)
 
 PostgreSQL stores user accounts only. Meeting state, participants, and chat are
 kept in process memory and permanently discarded when a meeting ends. Redis is
@@ -77,13 +78,13 @@ The Vite server proxies API and WebSocket traffic to port 8080.
 
 See **[docs/deploy.md](docs/deploy.md)** for the full operator checklist. Summary:
 
-- Terminate TLS at Nginx or a cloud load balancer. WebRTC camera/microphone
-  access requires HTTPS outside localhost.
-- Set `LIVEKIT_PUBLIC_URL` to the browser-reachable `wss://` endpoint.
-- Provide a TURN server for restrictive networks.
+- Use `docker-compose.prod.yml` + Caddy for public hosts (automatic HTTPS).
+- Set Google OAuth credentials before `scripts/deploy.sh` (required).
+- LiveKit public URL is `wss://<LIVEKIT_DOMAIN>`; embedded TURN listens on UDP 3478.
 - Run one backend instance for this MVP. Horizontal scaling requires moving
   presence/signaling coordination to Redis.
-- Rotate the example LiveKit credentials before exposing the stack.
+- Confirm `/healthz` returns JSON `{"status":"ok"}` and run
+  `bash scripts/smoke-production.sh` after deploy.
 
 See [docs/architecture.md](docs/architecture.md) and
 [docs/api.md](docs/api.md) for design and endpoint details.
@@ -95,9 +96,12 @@ The repository includes a hardened single-server deployment:
 1. Point the root, `www`, and `livekit` DNS records to the server IPv4 address.
 2. Clone the repository onto an Ubuntu server.
 3. Run `sudo bash scripts/bootstrap-ubuntu.sh`.
-4. Copy `.env.production.example` to `.env.production` and fill in fresh
-   secrets plus Google OAuth credentials.
+4. Copy `.env.production.example` to `.env.production` (or run
+   `scripts/init-production-env.sh`) and fill in fresh secrets **plus** Google
+   OAuth credentials. Deploy refuses to start without Google.
 5. Run `bash scripts/deploy.sh`.
+6. Run `bash scripts/smoke-production.sh`, then the manual two-user checklist in
+   [docs/deploy.md](docs/deploy.md).
 
 Caddy obtains and renews public TLS certificates automatically. The production
 firewall exposes HTTPS, LiveKit's ICE/TCP fallback, TURN/UDP, and the configured
