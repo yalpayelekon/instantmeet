@@ -67,12 +67,13 @@ describe('MeetingPage localization', () => {
   it('does not join the meeting again when the language changes', async () => {
     join.mockResolvedValue(waiting)
     render(<MeetingPage user={user} />)
-    await waitFor(() => expect(join).toHaveBeenCalledTimes(1))
+    // Initial join plus one reconciliation when the mocked socket is open.
+    await waitFor(() => expect(join).toHaveBeenCalledTimes(2))
 
     await act(async () => {
       await i18n.changeLanguage('tr')
     })
 
-    expect(join).toHaveBeenCalledTimes(1)
+    expect(join).toHaveBeenCalledTimes(2)
   })
 })

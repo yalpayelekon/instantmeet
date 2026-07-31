@@ -5,7 +5,7 @@ test.use({ locale: 'tr-TR' })
 test('detects the browser language and remembers a manual choice', async ({ page }) => {
   await page.goto('/')
 
-  await expect(page.getByRole('heading', { name: /şimdi buluş/i })).toBeVisible()
+  await expect(page.getByRole('heading', { name: /şimdi görüş/i })).toBeVisible()
   await expect(page.locator('html')).toHaveAttribute('lang', 'tr')
 
   const language = page.getByLabel('Dil')

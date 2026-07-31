@@ -88,8 +88,10 @@ test('host creates, admits, chats with guest, and ends a meeting', async ({ brow
 
     await guest.goto('/')
     await guest.evaluate(disableMedia, roomCode)
+    const guestSocket = guest.waitForEvent('websocket')
     await guest.goto(meetingPath)
     await expect(guest.getByText(/host knows you/i)).toBeVisible()
+    await guestSocket
 
     await host.locator('.control-right button').nth(0).click()
     const waitingGuest = host.locator('.person').filter({ hasText: 'E2E Guest' })
@@ -102,8 +104,10 @@ test('host creates, admits, chats with guest, and ends a meeting', async ({ brow
 
     await observer.goto('/')
     await observer.evaluate(disableMedia, roomCode)
+    const observerSocket = observer.waitForEvent('websocket')
     await observer.goto(meetingPath)
     await expect(observer.getByText(/host knows you/i)).toBeVisible()
+    await observerSocket
     const waitingObserver = host.locator('.person').filter({ hasText: 'E2E Observer' })
     await expect(waitingObserver).toBeVisible()
     await waitingObserver.locator('button.accept').click()

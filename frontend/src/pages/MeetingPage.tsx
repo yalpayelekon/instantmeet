@@ -171,6 +171,12 @@ export default function MeetingPage({ user }: { user: User }) {
 
   const { status: wsStatus, retryNow } = useMeetingSocket(join ? id : undefined, onSocket)
 
+  // Reconcile waiting-room state once the socket is ready. Admission can happen
+  // between the initial join response and WebSocket registration.
+  useEffect(() => {
+    if (wsStatus === 'open' && join?.status === 'waiting') void refreshJoin()
+  }, [wsStatus, join?.status, refreshJoin])
+
   useEffect(() => {
     if (chatTarget !== 'everyone' && join && !join.meeting.participants[chatTarget]) {
       setChatTarget('everyone')
