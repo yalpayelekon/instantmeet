@@ -85,7 +85,7 @@ func (a *API) join(w http.ResponseWriter, r *http.Request) {
 		problem(w, status(err), err.Error())
 		return
 	}
-	a.hub.Broadcast(id, ws.Event{Type: "meeting.updated", Payload: publicMeeting(m, user.ID)})
+	a.hub.Broadcast(id, ws.Event{Type: "meeting.updated", Payload: broadcastMeeting(m)})
 	response := map[string]any{"status": "waiting", "meeting": publicMeeting(m, user.ID)}
 	if m.Participants[user.ID] != nil {
 		token, err := a.livekit.Token(m.LiveKitRoom, user, true)
@@ -131,7 +131,7 @@ func (a *API) waitingAction(w http.ResponseWriter, r *http.Request, admit bool) 
 	if admit {
 		event = "participant.admitted"
 	}
-	a.hub.Broadcast(id, ws.Event{Type: event, UserID: body.UserID, Payload: publicMeeting(m, host.ID)})
+	a.hub.Broadcast(id, ws.Event{Type: event, UserID: body.UserID, Payload: broadcastMeeting(m)})
 	write(w, 200, publicMeeting(m, host.ID))
 }
 func (a *API) leave(w http.ResponseWriter, r *http.Request) {
@@ -156,7 +156,7 @@ func (a *API) leave(w http.ResponseWriter, r *http.Request) {
 		a.deleteLiveKitRoom(room)
 		return
 	}
-	a.hub.Broadcast(id, ws.Event{Type: "meeting.updated", Payload: publicMeeting(m, user.ID)})
+	a.hub.Broadcast(id, ws.Event{Type: "meeting.updated", Payload: broadcastMeeting(m)})
 	w.WriteHeader(204)
 }
 func (a *API) remove(w http.ResponseWriter, r *http.Request) {
@@ -180,7 +180,7 @@ func (a *API) remove(w http.ResponseWriter, r *http.Request) {
 		problem(w, status(err), err.Error())
 		return
 	}
-	a.hub.Broadcast(id, ws.Event{Type: "participant.removed", UserID: body.UserID, Payload: publicMeeting(m, host.ID)})
+	a.hub.Broadcast(id, ws.Event{Type: "participant.removed", UserID: body.UserID, Payload: broadcastMeeting(m)})
 	w.WriteHeader(204)
 }
 func (a *API) mute(w http.ResponseWriter, r *http.Request) {
@@ -205,17 +205,19 @@ func (a *API) mute(w http.ResponseWriter, r *http.Request) {
 		problem(w, status(err), err.Error())
 		return
 	}
-	a.hub.Broadcast(id, ws.Event{Type: "participant.muted", UserID: body.UserID, Payload: publicMeeting(m, host.ID)})
+	a.hub.Broadcast(id, ws.Event{Type: "participant.muted", UserID: body.UserID, Payload: broadcastMeeting(m)})
 	w.WriteHeader(204)
 }
 func (a *API) chat(w http.ResponseWriter, r *http.Request) {
 	user := auth.User(r)
 	id := chi.URLParam(r, "id")
 	var body struct {
-		Text string `json:"text"`
+		Text        string `json:"text"`
+		RecipientID string `json:"recipientId"`
 	}
 	_ = json.NewDecoder(r.Body).Decode(&body)
 	body.Text = strings.TrimSpace(body.Text)
+	body.RecipientID = strings.TrimSpace(body.RecipientID)
 	if body.Text == "" || len(body.Text) > 1000 {
 		problem(w, 400, "message must be 1-1000 characters")
 		return
@@ -225,6 +227,17 @@ func (a *API) chat(w http.ResponseWriter, r *http.Request) {
 		if m.Participants[user.ID] == nil {
 			return errors.New("not in meeting")
 		}
+		if body.RecipientID != "" {
+			if body.RecipientID == user.ID {
+				return errors.New("cannot message yourself")
+			}
+			recipient := m.Participants[body.RecipientID]
+			if recipient == nil {
+				return errors.New("recipient not in meeting")
+			}
+			msg.RecipientID = body.RecipientID
+			msg.RecipientName = recipient.DisplayName
+		}
 		m.Chat = append(m.Chat, msg)
 		return nil
 	})
@@ -232,7 +245,13 @@ func (a *API) chat(w http.ResponseWriter, r *http.Request) {
 		problem(w, status(err), err.Error())
 		return
 	}
-	a.hub.Broadcast(id, ws.Event{Type: "chat.message", Payload: msg})
+	event := ws.Event{Type: "chat.message", Payload: msg}
+	if msg.RecipientID == "" {
+		a.hub.Broadcast(id, event)
+	} else {
+		a.hub.SendTo(id, user.ID, event)
+		a.hub.SendTo(id, msg.RecipientID, event)
+	}
 	write(w, 201, msg)
 }
 func (a *API) media(w http.ResponseWriter, r *http.Request) {
@@ -260,7 +279,7 @@ func (a *API) media(w http.ResponseWriter, r *http.Request) {
 		problem(w, status(err), err.Error())
 		return
 	}
-	a.hub.Broadcast(id, ws.Event{Type: "participant.media", UserID: user.ID, Payload: publicMeeting(m, user.ID)})
+	a.hub.Broadcast(id, ws.Event{Type: "participant.media", UserID: user.ID, Payload: broadcastMeeting(m)})
 	w.WriteHeader(204)
 }
 func (a *API) end(w http.ResponseWriter, r *http.Request) {
@@ -299,7 +318,48 @@ func participant(u models.User, host bool) *models.Participant {
 	return &models.Participant{UserID: u.ID, DisplayName: u.DisplayName, Avatar: u.Avatar, IsHost: host, JoinedAt: time.Now().UTC(), MicEnabled: true, CameraEnabled: true}
 }
 func publicMeeting(m *models.Meeting, userID string) map[string]any {
-	return map[string]any{"id": m.ID, "hostId": m.HostID, "createdAt": m.CreatedAt, "participants": m.Participants, "waitingRoom": m.WaitingRoom, "chat": m.Chat, "state": m.State, "isHost": m.HostID == userID}
+	return meetingPayload(m, visibleChat(m, userID), userID)
+}
+
+// broadcastMeeting is safe for room-wide WebSocket fan-out: only public chat, no DMs.
+func broadcastMeeting(m *models.Meeting) map[string]any {
+	return meetingPayload(m, publicChatOnly(m), "")
+}
+
+func meetingPayload(m *models.Meeting, chat []models.ChatMessage, viewerID string) map[string]any {
+	return map[string]any{
+		"id": m.ID, "hostId": m.HostID, "createdAt": m.CreatedAt,
+		"participants": m.Participants, "waitingRoom": m.WaitingRoom,
+		"chat": chat, "state": m.State, "isHost": m.HostID == viewerID,
+	}
+}
+
+func publicChatOnly(m *models.Meeting) []models.ChatMessage {
+	out := make([]models.ChatMessage, 0, len(m.Chat))
+	for _, msg := range m.Chat {
+		if msg.RecipientID == "" {
+			out = append(out, msg)
+		}
+	}
+	return out
+}
+
+func visibleChat(m *models.Meeting, viewerID string) []models.ChatMessage {
+	admitted := m.Participants[viewerID] != nil
+	out := make([]models.ChatMessage, 0, len(m.Chat))
+	for _, msg := range m.Chat {
+		if msg.RecipientID == "" {
+			out = append(out, msg)
+			continue
+		}
+		if !admitted {
+			continue
+		}
+		if msg.UserID == viewerID || msg.RecipientID == viewerID {
+			out = append(out, msg)
+		}
+	}
+	return out
 }
 func status(err error) int {
 	if errors.Is(err, meeting.ErrNotFound) {

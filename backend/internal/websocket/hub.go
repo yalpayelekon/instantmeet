@@ -120,6 +120,25 @@ func (h *Hub) Broadcast(meetingID string, event Event) {
 	}
 }
 
+// SendTo delivers an event to a single user's connections in a meeting room.
+func (h *Hub) SendTo(meetingID, userID string, event Event) {
+	data, err := json.Marshal(event)
+	if err != nil {
+		return
+	}
+	h.mu.RLock()
+	defer h.mu.RUnlock()
+	for c := range h.rooms[meetingID] {
+		if c.userID != userID {
+			continue
+		}
+		select {
+		case c.send <- data:
+		default:
+		}
+	}
+}
+
 func (h *Hub) readPump(c *Client) {
 	defer h.unregister(c)
 	c.conn.SetReadLimit(32 << 10)

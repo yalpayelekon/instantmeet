@@ -4,7 +4,10 @@ export type Participant = {
   micEnabled: boolean; cameraEnabled: boolean; screenSharing: boolean
 }
 export type WaitingParticipant = Participant & { requestedAt: string }
-export type ChatMessage = { id: string; userId: string; displayName: string; text: string; sentAt: string }
+export type ChatMessage = {
+  id: string; userId: string; displayName: string; text: string; sentAt: string
+  recipientId?: string; recipientName?: string
+}
 export type Meeting = {
   id: string; hostId: string; createdAt: string; state: 'created'|'waiting'|'active'|'ending';
   participants: Record<string, Participant>; waitingRoom: Record<string, WaitingParticipant>;

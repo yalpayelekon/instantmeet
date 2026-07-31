@@ -93,7 +93,18 @@ func (s *Service) DevLogin(w http.ResponseWriter, r *http.Request) {
 		http.NotFound(w, r)
 		return
 	}
-	user := models.User{ID: "dev-local", GoogleID: "dev-local", Email: "demo@instantmeet.local", DisplayName: "Demo User"}
+	id := strings.TrimSpace(r.URL.Query().Get("as"))
+	if id == "" {
+		id = "dev-local"
+	}
+	name := strings.TrimSpace(r.URL.Query().Get("name"))
+	if name == "" {
+		name = "Demo User"
+		if id != "dev-local" {
+			name = id
+		}
+	}
+	user := models.User{ID: id, GoogleID: id, Email: id + "@instantmeet.local", DisplayName: name}
 	s.completeLogin(w, r, user)
 }
 

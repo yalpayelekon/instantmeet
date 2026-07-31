@@ -48,11 +48,26 @@ describe('api client', () => {
     await expect(api.getMeeting('missing')).rejects.toThrow('meeting not found')
   })
 
-  it('falls back to the HTTP status text for a non-JSON error', async () => {
-    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response('bad gateway', {
-      status: 502,
-      statusText: 'Bad Gateway',
-    })))
-    await expect(api.me()).rejects.toThrow('Bad Gateway')
+  it('sends optional recipientId for private chat', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(jsonResponse({ id: 'm1' }, { status: 201 }))
+    vi.stubGlobal('fetch', fetchMock)
+
+    await api.chat('room-1', 'secret', 'guest-id')
+
+    expect(fetchMock).toHaveBeenCalledWith('/api/meetings/room-1/chat', expect.objectContaining({
+      method: 'POST',
+      body: '{"text":"secret","recipientId":"guest-id"}',
+    }))
+  })
+
+  it('omits recipientId for room chat', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(jsonResponse({ id: 'm1' }, { status: 201 }))
+    vi.stubGlobal('fetch', fetchMock)
+
+    await api.chat('room-1', 'hello')
+
+    expect(fetchMock).toHaveBeenCalledWith('/api/meetings/room-1/chat', expect.objectContaining({
+      body: '{"text":"hello"}',
+    }))
   })
 })

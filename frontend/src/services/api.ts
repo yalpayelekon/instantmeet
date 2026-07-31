@@ -24,7 +24,11 @@ export const api = {
   end: (id: string) => request<void>(`/api/meetings/${id}/end`, { method: 'POST' }),
   action: (id: string, action: 'admit'|'reject'|'remove'|'mute', userId: string) =>
     request<Meeting|void>(`/api/meetings/${id}/${action}`, { method: 'POST', body: JSON.stringify({ userId }) }),
-  chat: (id: string, text: string) => request(`/api/meetings/${id}/chat`, { method: 'POST', body: JSON.stringify({ text }) }),
+  chat: (id: string, text: string, recipientId?: string) =>
+    request(`/api/meetings/${id}/chat`, {
+      method: 'POST',
+      body: JSON.stringify(recipientId ? { text, recipientId } : { text }),
+    }),
   media: (id: string, state: { mic?: boolean; camera?: boolean; screen?: boolean }) =>
     request<void>(`/api/meetings/${id}/media`, { method: 'POST', body: JSON.stringify(state) }),
 }

@@ -26,7 +26,7 @@ button { color:inherit }
 .hero { padding:105px 0 100px; position:relative }
 .hero:after { content:""; position:absolute; right:-190px; top:30px; width:530px; height:530px; border:1px solid rgba(190,242,100,.08); border-radius:50%; box-shadow:0 0 0 75px rgba(190,242,100,.015),0 0 0 150px rgba(190,242,100,.01); pointer-events:none }
 .eyebrow { display:inline-flex; align-items:center; gap:7px; color:#bef264; background:#bef2640d; border:1px solid #bef26424; border-radius:20px; padding:7px 11px; text-transform:uppercase; font-size:11px; font-weight:750; letter-spacing:.13em }
-.hero h1 { font-size:clamp(55px,7.4vw,102px); line-height:1.06; letter-spacing:-.066em; max-width:970px; margin:28px 0 30px; font-weight:680 }
+.hero h1 { font-size:clamp(55px,7.4vw,102px); line-height:1.16; letter-spacing:-.066em; max-width:970px; margin:28px 0 30px; font-weight:680 }
 .hero h1 span { color:#71717a }
 .hero-copy { color:#a1a1aa; font-size:19px; line-height:1.65; max-width:610px; margin:0 0 40px }
 .button { display:inline-flex; align-items:center; justify-content:center; gap:9px; border-radius:11px; padding:14px 19px; border:0; cursor:pointer; text-decoration:none; font-weight:680; font-size:15px }
@@ -74,11 +74,9 @@ footer { border-top:1px solid #18181b; color:#52525b; font-size:12px; padding:24
 .waiting-code svg { width:18px }
 .text-button:hover { color:white }
 .meeting-shell { height:100vh; background:#09090b; position:relative; overflow:hidden; padding:68px 16px 92px }
-.meeting-header { position:absolute;inset:0 0 auto;height:60px;display:flex;align-items:center;padding:0 22px;border-bottom:1px solid #1f1f22 }
+.meeting-header { position:absolute;inset:0 0 auto;height:60px;display:flex;align-items:center;justify-content:flex-end;padding:0 22px;border-bottom:1px solid #1f1f22 }
 .meeting-header-actions { display:flex; align-items:center; gap:8px }
-.brand.compact { font-size:16px }
-.brand.compact .brand-mark { width:29px;height:29px;border-radius:8px }
-.meeting-title { margin:auto;font-size:12px;color:#71717a;text-transform:uppercase;letter-spacing:.12em }
+.meeting-title { position:absolute;left:50%;transform:translateX(-50%);font-size:12px;color:#71717a;text-transform:uppercase;letter-spacing:.12em;white-space:nowrap }
 .live-dot { width:6px;height:6px;background:#bef264;display:inline-block;border-radius:50%;box-shadow:0 0 8px #bef264;margin-right:6px }
 .icon-button { background:transparent;border:0;color:#71717a;cursor:pointer }
 .icon-button svg { width:18px }
@@ -124,7 +122,12 @@ footer { border-top:1px solid #18181b; color:#52525b; font-size:12px; padding:24
 .message strong { font-size:12px }
 .message time { font-weight:400;color:#52525b;margin-left:8px;font-size:10px }
 .message p { margin:5px 0;color:#d4d4d8;font-size:13px;line-height:1.5;overflow-wrap:anywhere }
-.chat-form { margin:10px;display:flex;align-items:center;border:1px solid #3f3f46;border-radius:11px;background:#202024;padding:3px }
+.message-private { display:block;color:#a3e635;font-size:10px;font-weight:600;margin-bottom:3px;letter-spacing:.02em }
+.chat-compose { margin:10px;display:flex;flex-direction:column;gap:8px }
+.chat-recipient { display:flex;align-items:center;gap:8px;padding:0 2px }
+.chat-recipient label { color:#71717a;font-size:11px;text-transform:uppercase;letter-spacing:.08em;flex:none }
+.chat-recipient select { flex:1;background:#202024;border:1px solid #3f3f46;border-radius:8px;color:#e4e4e7;padding:7px 10px;font-size:12px;outline:0 }
+.chat-form { display:flex;align-items:center;border:1px solid #3f3f46;border-radius:11px;background:#202024;padding:3px }
 .chat-form input { background:transparent;border:0;outline:0;color:white;flex:1;padding:10px;font-size:13px }
 .chat-form button { width:35px;height:35px;display:grid;place-items:center;color:#bef264 }
 .chat-form button:disabled { color:#52525b }
@@ -178,6 +181,6 @@ footer { border-top:1px solid #18181b; color:#52525b; font-size:12px; padding:24
   .shell{width:min(100% - 28px,1180px)} .nav{height:68px}.github-link{display:none}.hero{padding:78px 0 65px}.hero h1{font-size:54px}.hero-copy{font-size:16px}
   .language-switcher svg{display:none}.language-switcher{padding-inline:6px}.nav-actions{gap:8px}
   .launch-panel,.created-box{flex-direction:column;align-items:stretch}.join-box input{width:100%}.join-box{width:100%}.promise{align-items:flex-start;gap:35px;flex-direction:column}.stats{gap:22px}footer span{display:none}
-  .meeting-header .brand span:last-child{display:none}.meeting-title{margin-left:auto;margin-right:12px}.meeting-shell{padding-inline:8px}.video-grid{grid-template-columns:1fr}.controls{grid-template-columns:auto 1fr;padding:0 10px}.meeting-clock{display:none}.control-center{justify-content:flex-start}.side-panel{left:8px;right:8px;width:auto}.control-center button,.control-right button{width:40px;height:40px}
+  .meeting-shell{padding-inline:8px}.video-grid{grid-template-columns:1fr}.controls{grid-template-columns:auto 1fr;padding:0 10px}.meeting-clock{display:none}.control-center{justify-content:flex-start}.side-panel{left:8px;right:8px;width:auto}.control-center button,.control-right button{width:40px;height:40px}
   .prejoin{grid-template-columns:1fr}.prejoin-actions{justify-content:center}
 }

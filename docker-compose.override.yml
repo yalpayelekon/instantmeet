@@ -1,0 +1,8 @@
+# Local host ports for `go run` + Vite against Compose infra.
+services:
+  postgres:
+    ports:
+      - "5432:5432"
+  redis:
+    ports:
+      - "6379:6379"

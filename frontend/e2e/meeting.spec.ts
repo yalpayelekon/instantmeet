@@ -47,10 +47,16 @@ test('host creates, admits, chats with guest, and ends a meeting', async ({ brow
     name: 'E2E Guest',
     email: 'guest@example.test',
   })
+  const observerContext = await authenticatedContext(browser, {
+    id: 'e2e-observer',
+    name: 'E2E Observer',
+    email: 'observer@example.test',
+  })
 
   try {
     const host = await hostContext.newPage()
     const guest = await guestContext.newPage()
+    const observer = await observerContext.newPage()
 
     await host.goto('/')
     await host.getByRole('button', { name: /new meeting/i }).click()
@@ -94,6 +100,17 @@ test('host creates, admits, chats with guest, and ends a meeting', async ({ brow
     await guest.getByRole('button', { name: /join now/i }).click()
     await expect(guest.locator('.meeting-shell')).toBeVisible()
 
+    await observer.goto('/')
+    await observer.evaluate(disableMedia, roomCode)
+    await observer.goto(meetingPath)
+    await expect(observer.getByText(/host knows you/i)).toBeVisible()
+    const waitingObserver = host.locator('.person').filter({ hasText: 'E2E Observer' })
+    await expect(waitingObserver).toBeVisible()
+    await waitingObserver.locator('button.accept').click()
+    await expect(observer.getByRole('button', { name: /join now/i })).toBeVisible()
+    await observer.getByRole('button', { name: /join now/i }).click()
+    await expect(observer.locator('.meeting-shell')).toBeVisible()
+
     await guest.locator('.control-right button').nth(1).click()
     await guest.getByPlaceholder('Send a message').fill('Hello from the guest')
     await guest.getByPlaceholder('Send a message').press('Enter')
@@ -104,15 +121,31 @@ test('host creates, admits, chats with guest, and ends a meeting', async ({ brow
     await host.getByPlaceholder('Send a message').press('Enter')
     await expect(guest.getByText('Welcome to InstantMeet')).toBeVisible()
 
+    await observer.locator('.control-right button').nth(1).click()
+    await expect(observer.getByText('Hello from the guest')).toBeVisible()
+    await expect(observer.getByText('Welcome to InstantMeet')).toBeVisible()
+
+    await host.getByLabel('To').selectOption({ label: 'E2E Guest' })
+    await host.getByPlaceholder('Send a message').fill('Private for guest only')
+    await host.getByPlaceholder('Send a message').press('Enter')
+    await expect(guest.getByText('Private for guest only')).toBeVisible()
+    await expect(guest.getByText(/Privately from E2E Host/i)).toBeVisible()
+    await expect(host.getByText(/Privately to E2E Guest/i)).toBeVisible()
+    await expect(observer.getByText('Private for guest only')).toHaveCount(0)
+    await expect(observer.getByText(/Privately (to|from)/i)).toHaveCount(0)
+    await expect(observer.getByText('Welcome to InstantMeet')).toBeVisible()
+
     host.on('dialog', dialog => dialog.accept())
     await host.getByTitle('End for everyone').click()
     await expect(host).toHaveURL('/')
     await expect(guest).toHaveURL('/')
+    await expect(observer).toHaveURL('/')
 
     const response = await guest.request.get(`/api/meetings/${roomCode}`)
     expect(response.status()).toBe(404)
   } finally {
     await hostContext.close()
     await guestContext.close()
+    await observerContext.close()
   }
 })

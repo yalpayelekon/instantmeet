@@ -20,7 +20,7 @@ import { useMeetingSocket, type SocketEvent, type SocketStatus } from '../hooks/
 import { DeviceSelects } from '../components/DeviceSelects'
 import { loadMediaPrefs, useMediaDevices } from '../hooks/useMediaDevices'
 import { api } from '../services/api'
-import type { JoinResponse, Meeting, User } from '../types'
+import type { ChatMessage, JoinResponse, Meeting, User } from '../types'
 
 function VideoGrid() {
   const tracks = useTracks(
@@ -101,6 +101,7 @@ export default function MeetingPage({ user }: { user: User }) {
   const [error, setError] = useState('')
   const [panel, setPanel] = useState<'people' | 'chat' | 'settings' | null>(null)
   const [message, setMessage] = useState('')
+  const [chatTarget, setChatTarget] = useState('everyone')
   const [copied, setCopied] = useState(false)
   const [ready, setReady] = useState(false)
   const [mediaStatus, setMediaStatus] = useState<'connected' | 'reconnecting' | 'disconnected'>('connected')
@@ -141,19 +142,40 @@ export default function MeetingPage({ user }: { user: User }) {
     }
     if ((event.type === 'meeting.updated' || event.type.startsWith('participant.')) && event.payload) {
       const snapshot = event.payload as Meeting
-      const meeting = { ...snapshot, isHost: snapshot.hostId === user.id }
-      setJoin(current => (current ? { ...current, meeting } : current))
+      setJoin(current => {
+        if (!current) return current
+        // Chat is append-only for the meeting lifetime. Snapshots can arrive out of
+        // order relative to chat.message, so keep every message we already know.
+        const byId = new Map<string, ChatMessage>()
+        for (const m of current.meeting.chat) byId.set(m.id, m)
+        for (const m of snapshot.chat ?? []) byId.set(m.id, m)
+        const chat = [...byId.values()].sort((a, b) => a.sentAt.localeCompare(b.sentAt))
+        return {
+          ...current,
+          meeting: { ...snapshot, isHost: snapshot.hostId === user.id, chat },
+        }
+      })
     }
     if (event.type === 'chat.message' && event.payload) {
-      setJoin(current =>
-        current
-          ? { ...current, meeting: { ...current.meeting, chat: [...current.meeting.chat, event.payload as Meeting['chat'][number]] } }
-          : current,
-      )
+      const incoming = event.payload as ChatMessage
+      setJoin(current => {
+        if (!current) return current
+        if (current.meeting.chat.some(m => m.id === incoming.id)) return current
+        return {
+          ...current,
+          meeting: { ...current.meeting, chat: [...current.meeting.chat, incoming] },
+        }
+      })
     }
   }, [intentionalLeave, navigate, refreshJoin, user.id])
 
   const { status: wsStatus, retryNow } = useMeetingSocket(join ? id : undefined, onSocket)
+
+  useEffect(() => {
+    if (chatTarget !== 'everyone' && join && !join.meeting.participants[chatTarget]) {
+      setChatTarget('everyone')
+    }
+  }, [chatTarget, join])
 
   const leave = async () => {
     intentionalLeave.current = true
@@ -172,7 +194,7 @@ export default function MeetingPage({ user }: { user: User }) {
     if (!id || !message.trim()) return
     const text = message
     setMessage('')
-    await api.chat(id, text)
+    await api.chat(id, text, chatTarget === 'everyone' ? undefined : chatTarget)
   }
   const copy = async () => {
     await navigator.clipboard.writeText(location.href)
@@ -268,10 +290,6 @@ export default function MeetingPage({ user }: { user: User }) {
       <div className="meeting-shell">
         <ConnectionBanner wsStatus={wsStatus} mediaStatus={mediaStatus} onRetryWs={retryNow} />
         <header className="meeting-header">
-          <a className="brand compact" href="/">
-            <span className="brand-mark">I</span>
-            <span>InstantMeet</span>
-          </a>
           <div className="meeting-title">
             <span className="live-dot" /> {t('meeting.live')} <span>·</span> {id}
           </div>
@@ -343,11 +361,18 @@ export default function MeetingPage({ user }: { user: User }) {
                   {join.meeting.chat.length === 0 ? (
                     <div className="empty-chat">
                       <MessageSquare />
-                      <p>{t('meeting.emptyChat')}</p>
+                      <p>{t(chatTarget === 'everyone' ? 'meeting.emptyChat' : 'meeting.emptyPrivateChat')}</p>
                     </div>
                   ) : (
                     join.meeting.chat.map(m => (
                       <div className="message" key={m.id}>
+                        {m.recipientId && (
+                          <span className="message-private">
+                            {m.userId === user.id
+                              ? t('meeting.privatelyTo', { name: m.recipientName || m.recipientId })
+                              : t('meeting.privatelyFrom', { name: m.displayName })}
+                          </span>
+                        )}
                         <strong>
                           {m.displayName}
                           <time>{new Date(m.sentAt).toLocaleTimeString(i18n.language, { hour: '2-digit', minute: '2-digit' })}</time>
@@ -357,10 +382,25 @@ export default function MeetingPage({ user }: { user: User }) {
                     ))
                   )}
                 </div>
-                <form className="chat-form" onSubmit={send}>
-                  <input maxLength={1000} placeholder={t('meeting.sendMessage')} value={message} onChange={e => setMessage(e.target.value)} />
-                  <button type="submit" disabled={!message.trim()}><Send /></button>
-                </form>
+                <div className="chat-compose">
+                  <div className="chat-recipient">
+                    <label htmlFor="chat-target">{t('meeting.chatTo')}</label>
+                    <select
+                      id="chat-target"
+                      value={chatTarget}
+                      onChange={e => setChatTarget(e.target.value)}
+                    >
+                      <option value="everyone">{t('meeting.chatEveryone')}</option>
+                      {people.filter(p => p.userId !== user.id).map(p => (
+                        <option key={p.userId} value={p.userId}>{p.displayName}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <form className="chat-form" onSubmit={send}>
+                    <input maxLength={1000} placeholder={t('meeting.sendMessage')} value={message} onChange={e => setMessage(e.target.value)} />
+                    <button type="submit" disabled={!message.trim()}><Send /></button>
+                  </form>
+                </div>
               </>
             )}
             {panel === 'settings' && <SettingsPanel meetingId={id!} />}
